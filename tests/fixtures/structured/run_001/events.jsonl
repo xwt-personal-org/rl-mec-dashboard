@@ -1,0 +1,4 @@
+{"time":"2026-04-28T15:31:00+08:00","type":"algorithm_started","algorithm":"GRPO","message":"Algorithm: GRPO"}
+{"time":"2026-04-28T15:32:00+08:00","type":"progress","algorithm":"GRPO","current_step":12000,"total_step":500000,"it_per_sec":1020.5,"eta_seconds":478}
+{"time":"2026-04-28T15:40:00+08:00","type":"algorithm_finished","algorithm":"GRPO","reward":11.83,"reward_std":1.01,"train_time":325.8}
+{"time":"2026-04-28T15:41:00+08:00","type":"log","level":"warn","message":"High variance detected"}

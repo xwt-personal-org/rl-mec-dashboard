@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "run_id": "run_001",
+  "status": "finished",
+  "started_at": "2026-04-28T15:30:03+08:00",
+  "finished_at": "2026-04-28T16:10:20+08:00",
+  "results": [
+    {
+      "algorithm": "GRPO",
+      "reward": 11.8355,
+      "reward_std": 1.0085,
+      "train_time": 325.8,
+      "latency": 0.12,
+      "energy": 0.45,
+      "deadline_miss_rate": 0.03,
+      "throughput": 18.2,
+      "comm_score": 0.76,
+      "update_count": 481436
+    }
+  ]
+}

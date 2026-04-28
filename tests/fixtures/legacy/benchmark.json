@@ -1,0 +1,15 @@
+[
+  {
+    "algorithm": "GRPO",
+    "final_reward_mean_mean": 11.8355,
+    "final_reward_mean_std": 1.0085,
+    "train_time_seconds_mean": 325.8,
+    "final_latency_mean_mean": 0.12,
+    "final_energy_mean_mean": 0.45,
+    "final_deadline_miss_rate_mean": 0.03,
+    "final_throughput_tasks_per_step_mean": 18.2,
+    "final_comm_score_mean": 0.76,
+    "total_updates_mean": 481436,
+    "environment": "MEC-v1"
+  }
+]

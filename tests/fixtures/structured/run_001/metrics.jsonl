@@ -1,0 +1,2 @@
+{"time":"2026-04-28T15:32:00+08:00","algorithm":"GRPO","step":1000,"reward":1.2,"latency":0.32,"energy":0.81,"deadline_miss_rate":0.02,"throughput":15.3,"comm_score":0.71}
+{"time":"2026-04-28T15:33:00+08:00","algorithm":"GRPO","step":2000,"reward":1.8,"latency":0.30,"energy":0.79,"deadline_miss_rate":0.01,"throughput":16.1,"comm_score":0.73}

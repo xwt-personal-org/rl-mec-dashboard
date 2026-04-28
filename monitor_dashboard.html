@@ -6,473 +6,588 @@
     <title>RL-MEC Training Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; padding: 20px; color: #fff; }
-        .container { max-width: 1440px; margin: 0 auto; }
-        h1 { text-align: center; font-size: 2.2em; margin-bottom: 24px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-
-        .run-selector { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; background: rgba(255,255,255,0.1); border-radius: 10px; padding: 12px 18px; }
-        .stop-btn { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85em; font-weight: 600; white-space: nowrap; }
-        .stop-btn:hover { opacity: 0.9; }
-        .run-selector label { font-size: 0.9em; opacity: 0.8; white-space: nowrap; }
-        .run-selector select { flex: 1; max-width: 400px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); color: #fff; font-size: 0.9em; }
-        .run-selector select option { background: #1a1a2e; color: #fff; }
-        .run-info { font-size: 0.8em; opacity: 0.6; }
-
-        .status-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 22px; }
-        .card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 12px; padding: 16px; border: 1px solid rgba(255,255,255,0.2); transition: border-color 0.3s; }
-        .card.highlight { border-color: #667eea; }
-        .card h3 { font-size: 0.82em; opacity: 0.8; margin-bottom: 6px; }
-        .card .value { font-size: 1.5em; font-weight: bold; }
-        .card .sub { font-size: 0.7em; opacity: 0.7; margin-top: 4px; }
-        .status-idle { color: #95a5a6; }
-        .status-running { color: #3498db; }
-        .status-finished { color: #27ae60; }
-        .status-stalled { color: #e74c3c; }
-        .status-degraded { color: #f39c12; }
-
-        .progress-section { background: rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-bottom: 22px; }
-        .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .progress-header h2 { font-size: 1.1em; }
-        .algo-badge { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 5px 16px; border-radius: 20px; font-weight: bold; font-size: 0.9em; }
-        .progress-bar-wrap { background: rgba(255,255,255,0.2); border-radius: 10px; height: 26px; overflow: hidden; margin-bottom: 8px; }
-        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); transition: width 0.5s ease; border-radius: 10px; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-weight: bold; font-size: 0.82em; min-width: 40px; }
-        .overall-bar-fill { background: linear-gradient(90deg, #27ae60 0%, #2ecc71 100%); }
-        .progress-stats { display: flex; justify-content: space-between; font-size: 0.82em; opacity: 0.9; }
-
-        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 22px; }
-        .chart-section { background: rgba(255,255,255,0.1); border-radius: 12px; padding: 18px; }
-        .chart-section h2 { font-size: 1.05em; margin-bottom: 10px; }
-        .chart-container { position: relative; height: 260px; }
-
-        .results-section { background: rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-bottom: 22px; }
-        .results-section h2 { margin-bottom: 14px; font-size: 1.15em; }
-        .results-table { width: 100%; border-collapse: collapse; }
-        .results-table th { background: rgba(255,255,255,0.2); padding: 9px; text-align: left; font-size: 0.8em; }
-        .results-table td { padding: 9px; border-bottom: 1px solid rgba(255,255,255,0.1); font-size: 0.82em; }
-        .results-table tr:hover { background: rgba(255,255,255,0.08); }
-        .badge { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 0.75em; font-weight: 600; }
-        .badge-ok { background: #27ae60; }
-        .badge-running { background: #3498db; }
-        .badge-finished { background: #9b59b6; }
-        .badge-stalled { background: #e74c3c; }
-        .badge-degraded { background: #f39c12; }
-        .badge-historical { background: #7f8c8d; }
-
-        .log-section { background: rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; }
-        .log-section h2 { margin-bottom: 10px; font-size: 1.15em; }
-        .log-window { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 12px; height: 260px; overflow-y: auto; font-family: 'Consolas', 'Courier New', monospace; font-size: 0.78em; line-height: 1.5; }
-        .log-line { margin-bottom: 2px; word-break: break-all; }
-        .log-error { color: #e74c3c; }
-        .log-warn { color: #f39c12; }
-        .log-info { color: #3498db; }
-
-        .reconnect-btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 9px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9em; margin-top: 14px; }
-        .reconnect-btn:hover { opacity: 0.9; }
-
-        @media (max-width: 1100px) { .status-bar { grid-template-columns: repeat(3, 1fr); } .charts-grid { grid-template-columns: 1fr; } }
-        @media (max-width: 700px) { .status-bar { grid-template-columns: repeat(2, 1fr); } }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { min-height: 100vh; background: #101624; color: #eef3ff; font-family: "Segoe UI", Arial, sans-serif; padding: 20px; }
+        .container { max-width: 1480px; margin: 0 auto; }
+        h1 { font-size: 2rem; margin-bottom: 18px; }
+        h2 { font-size: 1rem; margin-bottom: 12px; }
+        button, select, input { font: inherit; }
+        .topbar, .filters, .panel, .status-bar, .charts-grid { margin-bottom: 18px; }
+        .topbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .topbar select, .filters select, .filters input, .compare-controls select { min-height: 36px; background: #172033; color: #eef3ff; border: 1px solid #2c3a58; border-radius: 6px; padding: 6px 10px; }
+        .topbar select { min-width: 280px; }
+        .btn { min-height: 36px; border: 0; border-radius: 6px; color: #fff; background: #3f6ee8; padding: 7px 12px; cursor: pointer; }
+        .btn.secondary { background: #27364f; }
+        .btn.danger { background: #b93838; }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .muted { color: #9aa8c2; font-size: 0.85rem; }
+        .connection-status { display: none; padding: 8px 12px; color: #ffc4c4; background: #361d25; border: 1px solid #94404a; border-radius: 6px; margin-bottom: 14px; }
+        .panel { background: #151f31; border: 1px solid #263753; border-radius: 8px; padding: 16px; }
+        .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .run-overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+        .run-tile { background: #111a2a; border: 1px solid #273854; border-radius: 8px; padding: 12px; cursor: pointer; }
+        .run-tile.active { border-color: #5f83ff; }
+        .run-tile-header { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+        .run-id { font-weight: 700; word-break: break-word; }
+        .run-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 0.82rem; color: #bfcae1; }
+        .status-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+        .metric { background: #151f31; border: 1px solid #263753; border-radius: 8px; padding: 14px; min-height: 86px; }
+        .metric h3 { font-size: 0.78rem; color: #9aa8c2; margin-bottom: 8px; }
+        .metric .value { font-size: 1.35rem; font-weight: 700; }
+        .metric .sub { color: #9aa8c2; font-size: 0.76rem; margin-top: 4px; }
+        .progress-bar-wrap { background: #263147; border-radius: 6px; overflow: hidden; height: 24px; }
+        .progress-bar-fill { height: 100%; min-width: 34px; background: #3f6ee8; text-align: right; padding-right: 8px; line-height: 24px; font-size: 0.78rem; transition: width 0.2s ease; }
+        .progress-bar-fill.overall { background: #1f9d67; }
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .chart-container { height: 260px; position: relative; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border-bottom: 1px solid #273854; padding: 8px; text-align: left; font-size: 0.82rem; white-space: nowrap; }
+        th { color: #9aa8c2; background: #19243a; }
+        .badge { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
+        .badge-running { background: #214d8c; }
+        .badge-finished { background: #1d6f50; }
+        .badge-stalled, .badge-failed { background: #8c2d2d; }
+        .badge-degraded, .badge-warn { background: #8a5a10; }
+        .badge-idle, .badge-historical { background: #48566f; }
+        .compare-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+        .compare-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr); gap: 18px; }
+        .log-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+        .log-window { height: 280px; overflow-y: auto; background: #0b111d; border: 1px solid #263753; border-radius: 8px; padding: 10px; font: 0.78rem/1.5 Consolas, "Courier New", monospace; }
+        .log-line { padding: 2px 0; word-break: break-word; cursor: pointer; }
+        .log-error { color: #ff8787; }
+        .log-warn { color: #ffd166; }
+        .log-info { color: #7fb2ff; }
+        .error-summary { color: #ffc4c4; background: #241722; border: 1px solid #4a2c37; border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem; }
+        .empty { color: #9aa8c2; text-align: center; padding: 24px; }
+        @media (max-width: 1100px) { .status-bar { grid-template-columns: repeat(2, 1fr); } .charts-grid, .compare-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 700px) { body { padding: 12px; } .status-bar { grid-template-columns: 1fr; } .topbar select { min-width: 100%; } }
     </style>
 </head>
 <body>
-    <div id="loading-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(26,26,46,0.95); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-        <div style="width: 48px; height: 48px; border: 4px solid rgba(102,126,234,0.3); border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px;"></div>
-        <p style="font-size: 1.1em; opacity: 0.8;">Loading dashboard...</p>
-    </div>
     <div class="container">
         <h1>RL-MEC Training Dashboard</h1>
 
-        <div class="run-selector">
-            <label>Log Run:</label>
-            <select id="run-select" onchange="switchRun(this.value)"></select>
-            <span class="run-info" id="run-info">-</span>
-            <button class="stop-btn" onclick="stopDashboard()" title="Stop the dashboard server">Stop Dashboard</button>
+        <div class="topbar">
+            <select id="run-select" onchange="selectRun(this.value)"></select>
+            <span class="muted" id="run-info">No run selected</span>
+            <button class="btn secondary" onclick="initSSE()">Reconnect SSE</button>
+            <button class="btn danger" onclick="stopDashboardServer()">Stop Dashboard Server</button>
         </div>
 
-        <div id="connection-status" style="display:none; padding: 8px 18px; background: rgba(231,76,60,0.2); border: 1px solid #e74c3c; border-radius: 8px; color: #e74c3c; font-size: 0.85em; font-weight: bold; margin-bottom: 16px;">
-            ● Disconnected — attempting to reconnect...
-        </div>
+        <div id="connection-status" class="connection-status">Disconnected. Reconnecting...</div>
 
-        <div id="empty-state" style="display:none; text-align: center; padding: 60px 20px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 22px;">
-            <h2 style="font-size: 1.4em; margin-bottom: 12px;">No Runs Found</h2>
-            <p style="opacity: 0.7; font-size: 0.9em;">The logs directory appears to be empty.<br>Start a benchmark run to see live data here.</p>
-        </div>
+        <section class="panel">
+            <h2>Run Overview</h2>
+            <div class="filters">
+                <select id="status-filter">
+                    <option value="all">All statuses</option>
+                    <option value="running">Running</option>
+                    <option value="finished">Finished</option>
+                    <option value="stalled">Stalled</option>
+                    <option value="degraded">Degraded</option>
+                    <option value="failed">Failed</option>
+                    <option value="idle">Idle</option>
+                </select>
+                <input id="run-keyword-filter" type="search" placeholder="Filter runs">
+                <button id="export-csv-btn" class="btn secondary" onclick="exportResults('csv')">Export CSV</button>
+                <button id="export-md-btn" class="btn secondary" onclick="exportResults('md')">Export Markdown</button>
+            </div>
+            <div id="run-overview" class="run-overview"></div>
+        </section>
 
-        <div class="status-bar">
-            <div class="card" id="card-status">
-                <h3>Status</h3>
-                <div class="value" id="status">-</div>
-                <div class="sub" id="status-sub">Waiting for data</div>
-            </div>
-            <div class="card">
-                <h3>Current Algorithm</h3>
-                <div class="value" id="current-algo">-</div>
-                <div class="sub" id="algo-sub">-</div>
-            </div>
-            <div class="card">
-                <h3>Algorithm Progress</h3>
-                <div class="value" id="progress-pct">0%</div>
-                <div class="sub" id="progress-sub">- / - steps</div>
-            </div>
-            <div class="card">
-                <h3>Overall Progress</h3>
-                <div class="value" id="overall-progress">0/17</div>
-                <div class="sub" id="overall-pct">0% complete</div>
-            </div>
-            <div class="card">
-                <h3>ETA</h3>
-                <div class="value" id="eta">-</div>
-                <div class="sub" id="elapsed">Elapsed: -</div>
-            </div>
-        </div>
+        <section class="status-bar" id="metric-cards">
+            <div class="metric"><h3>Status</h3><div class="value" id="status">-</div><div class="sub" id="status-sub">Waiting for data</div></div>
+            <div class="metric"><h3>Current Algorithm</h3><div class="value" id="current-algo">-</div><div class="sub" id="algo-sub">-</div></div>
+            <div class="metric"><h3>Algorithm Progress</h3><div class="value" id="progress-pct">0%</div><div class="sub" id="progress-sub">- / - steps</div></div>
+            <div class="metric"><h3>Overall Progress</h3><div class="value" id="overall-progress">0/17</div><div class="sub" id="overall-pct">0% complete</div></div>
+            <div class="metric"><h3>ETA</h3><div class="value" id="eta">-</div><div class="sub" id="elapsed">Elapsed: -</div></div>
+        </section>
 
-        <div class="progress-section">
-            <div class="progress-header">
-                <h2>Current Algorithm Progress</h2>
-                <span class="algo-badge" id="algo-badge">-</span>
-            </div>
-            <div class="progress-bar-wrap">
-                <div class="progress-bar-fill" id="progress-bar" style="width: 0%">0%</div>
-            </div>
-            <div class="progress-stats">
+        <section class="panel">
+            <h2>Progress</h2>
+            <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar" style="width:0%">0%</div></div>
+            <div class="muted" style="display:flex;justify-content:space-between;margin:8px 0 12px;">
                 <span id="it-per-sec">- it/s</span>
                 <span id="update-count">Updates: -</span>
                 <span id="elapsed-stat">-</span>
             </div>
-            <div style="margin-top: 12px;">
-                <div class="progress-header">
-                    <h2 style="font-size:1em;">Overall Benchmark Progress</h2>
-                    <span id="overall-badge" style="font-size:0.82em;opacity:0.8;"><span class="completed-algo-count">0</span> of <span class="total-algo-count">17</span></span>
-                </div>
-                <div class="progress-bar-wrap">
-                    <div class="progress-bar-fill overall-bar-fill" id="overall-bar" style="width: 0%">0%</div>
-                </div>
-            </div>
-        </div>
+            <div class="progress-bar-wrap"><div class="progress-bar-fill overall" id="overall-bar" style="width:0%">0%</div></div>
+        </section>
 
-        <div class="charts-grid">
-            <div class="chart-section">
+        <section class="charts-grid">
+            <div class="panel">
                 <h2>Reward Comparison</h2>
-                <div class="chart-container">
-                    <canvas id="rewardChart"></canvas>
-                </div>
+                <div class="chart-container"><canvas id="rewardChart"></canvas></div>
             </div>
-            <div class="chart-section">
-                <h2>Training Time (seconds)</h2>
-                <div class="chart-container">
-                    <canvas id="timeChart"></canvas>
-                </div>
+            <div class="panel">
+                <h2>Training Time</h2>
+                <div class="chart-container"><canvas id="timeChart"></canvas></div>
             </div>
-        </div>
+        </section>
 
-        <div class="results-section">
+        <section class="panel">
             <h2>Algorithm Results</h2>
-            <table class="results-table" id="results-table">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Algorithm</th>
-                        <th>Environment</th>
-                        <th>Reward</th>
-                        <th>Latency</th>
-                        <th>Energy</th>
-                        <th>Deadline Miss</th>
-                        <th>Throughput</th>
-                        <th>Comm Score</th>
-                        <th>Train Time</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="results-body">
-                    <tr><td colspan="11" style="text-align:center;opacity:0.6;">No results yet</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="log-section">
-            <h2>Live Logs</h2>
-            <div class="log-window" id="log-window">
-                <div class="log-line">Waiting for logs...</div>
+            <div class="table-wrap">
+                <table id="results-table">
+                    <thead>
+                        <tr>
+                            <th>Algorithm</th>
+                            <th>Environment</th>
+                            <th>Reward</th>
+                            <th>Latency</th>
+                            <th>Energy</th>
+                            <th>deadline_miss_rate</th>
+                            <th>throughput</th>
+                            <th>comm_score</th>
+                            <th>Train Time</th>
+                            <th>Status</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body"><tr><td colspan="11" class="empty">No results yet</td></tr></tbody>
+                </table>
             </div>
-            <button class="reconnect-btn" onclick="initSSE()">Reconnect SSE</button>
-        </div>
+        </section>
+
+        <section id="compare-panel" class="panel">
+            <h2>Compare Runs</h2>
+            <div class="compare-controls">
+                <select id="compare-metric">
+                    <option value="reward">Reward</option>
+                    <option value="latency">Latency</option>
+                    <option value="energy">Energy</option>
+                    <option value="deadline_miss_rate">Deadline Miss Rate</option>
+                    <option value="throughput">Throughput</option>
+                    <option value="comm_score">Comm Score</option>
+                    <option value="train_time">Train Time</option>
+                    <option value="update_count">Update Count</option>
+                </select>
+                <span class="muted" id="compare-hint">Select at least two runs to compare.</span>
+            </div>
+            <div class="compare-grid">
+                <div class="chart-container"><canvas id="compareChart"></canvas></div>
+                <div class="table-wrap"><table><thead><tr><th>Algorithm</th><th>Run</th><th>Value</th></tr></thead><tbody id="compare-table-body"><tr><td colspan="3" class="empty">Select at least two runs to compare.</td></tr></tbody></table></div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>Live Logs</h2>
+            <div class="log-controls">
+                <select id="log-level-filter">
+                    <option value="all">All levels</option>
+                    <option value="error">Error</option>
+                    <option value="warn">Warn</option>
+                    <option value="info">Info</option>
+                </select>
+                <input id="log-keyword-filter" type="search" placeholder="Filter logs">
+                <label class="muted"><input id="log-autoscroll-toggle" type="checkbox" checked> Auto-scroll</label>
+            </div>
+            <div id="error-summary" class="error-summary">No recent errors</div>
+            <div id="log-window" class="log-window"><div class="log-line">Waiting for logs...</div></div>
+        </section>
     </div>
 
     <script>
-        let es = null;
-        let reconnectTimer = null;
-        let rewardChart = null;
-        let timeChart = null;
-        let currentRunId = null;
-        let availableRuns = [];
-        let lastLogHash = "";
-        let firstUpdateReceived = false;
-
-        const ALGO_COLORS = {
-            GRPO:'#e74c3c', PPO:'#3498db', SAC:'#27ae60', DDQN:'#e67e22',
-            DDPG:'#9b59b6', TD3:'#1abc9c', A3C:'#8b4513', TRPO:'#7f8c8d',
-            SimPO:'#e84393', MAPPO:'#74b9ff', QMIX:'#a0522d', COMA:'#ff6348',
-            IPPO:'#636e72', VDN:'#55efc4', MADDPG:'#fdcb6e', IQL:'#00cec9',
-            MATD3:'#6c5ce7',
-            Greedy:'#d63031', Random:'#fdcb6e', 'Local-only':'#636e72', 'Full-offload':'#00b894',
+        const dashboardState = {
+            runs: [],
+            currentRunId: null,
+            currentRunState: null,
+            selectedRunIds: [],
+            selectedMetric: 'reward',
+            filters: { status: 'all', keyword: '', logLevel: 'all', logKeyword: '', autoScroll: true },
+            charts: { rewardChart: null, timeChart: null, compareChart: null },
+            sse: { eventSource: null, reconnectTimer: null, connected: false }
         };
 
-        function formatTime(seconds) {
-            if (!seconds || seconds <= 0) return "-";
-            seconds = Math.floor(seconds);
-            if (seconds >= 3600) {
-                const h = Math.floor(seconds / 3600);
-                const m = Math.floor((seconds % 3600) / 60);
-                return h + "h " + m + "m";
-            }
-            if (seconds >= 60) {
-                const m = Math.floor(seconds / 60);
-                const s = seconds % 60;
-                return m + "m " + s + "s";
-            }
-            return seconds + "s";
-        }
+        const ALGO_COLORS = {
+            GRPO: '#e74c3c', PPO: '#3498db', SAC: '#27ae60', DDQN: '#e67e22',
+            DDPG: '#9b59b6', TD3: '#1abc9c', A3C: '#8b4513', TRPO: '#7f8c8d',
+            SimPO: '#e84393', MAPPO: '#74b9ff', QMIX: '#a0522d', COMA: '#ff6348',
+            IPPO: '#636e72', VDN: '#55efc4', MADDPG: '#fdcb6e', IQL: '#00cec9',
+            MATD3: '#6c5ce7', Greedy: '#d63031', Random: '#fdcb6e'
+        };
 
-        function formatNumber(n) {
-            if (!n && n !== 0) return "-";
-            return n.toLocaleString();
-        }
-
-        function getStatusBadge(status) {
-            const map = { running:"badge-running", finished:"badge-finished", stalled:"badge-stalled", idle:"badge-ok", degraded:"badge-degraded", historical:"badge-historical" };
-            return '<span class="badge ' + (map[status] || "badge-ok") + '">' + status.toUpperCase() + '</span>';
-        }
-
-        function getStatusClass(status) {
-            return "status-" + (status || "idle");
-        }
-
-        function fmtVal(v, decimals) {
-            if (v === null || v === undefined || v === '-') return '-';
-            return Number(v).toFixed(decimals || 4);
+        function chartOptions() {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#dbe6ff' } } },
+                scales: {
+                    x: { ticks: { color: '#bfcae1' }, grid: { color: 'rgba(255,255,255,0.08)' } },
+                    y: { ticks: { color: '#bfcae1' }, grid: { color: 'rgba(255,255,255,0.08)' } }
+                }
+            };
         }
 
         function initCharts() {
-            const ctxR = document.getElementById('rewardChart').getContext('2d');
-            const ctxT = document.getElementById('timeChart').getContext('2d');
-            const chartOpts = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { ticks: { color: '#ccc', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                    y: { ticks: { color: '#ccc' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                },
-            };
-            rewardChart = new Chart(ctxR, { type: 'bar', data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] }, options: chartOpts });
-            timeChart = new Chart(ctxT, { type: 'bar', data: { labels: [], datasets: [{ data: [], backgroundColor: [] }] }, options: chartOpts });
+            dashboardState.charts.rewardChart = new Chart(document.getElementById('rewardChart'), {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: 'Reward', data: [], backgroundColor: [] }] },
+                options: chartOptions()
+            });
+            dashboardState.charts.timeChart = new Chart(document.getElementById('timeChart'), {
+                type: 'bar',
+                data: { labels: [], datasets: [{ label: 'Train Time', data: [], backgroundColor: [] }] },
+                options: chartOptions()
+            });
+            dashboardState.charts.compareChart = new Chart(document.getElementById('compareChart'), {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: chartOptions()
+            });
         }
 
-        function updateCharts(results) {
-            if (!rewardChart || !results || results.length === 0) return;
-            const currentRun = results.filter(r => r.source === "current_run");
-            if (currentRun.length === 0) return;
-            const sorted = [...currentRun].sort((a, b) => (b.reward || 0) - (a.reward || 0));
-            rewardChart.data.labels = sorted.map(r => r.algorithm);
-            rewardChart.data.datasets[0].data = sorted.map(r => r.reward || 0);
-            rewardChart.data.datasets[0].backgroundColor = sorted.map(r => ALGO_COLORS[r.algorithm] || '#667eea');
-            rewardChart.update('none');
-
-            const sortedT = [...currentRun].sort((a, b) => (a.train_time || 0) - (b.train_time || 0));
-            timeChart.data.labels = sortedT.map(r => r.algorithm);
-            timeChart.data.datasets[0].data = sortedT.map(r => r.train_time || 0);
-            timeChart.data.datasets[0].backgroundColor = sortedT.map(r => ALGO_COLORS[r.algorithm] || '#667eea');
-            timeChart.update('none');
-        }
-
-        function updateDashboard(state) {
-            if (!firstUpdateReceived) {
-                firstUpdateReceived = true;
-                const lo = document.getElementById("loading-overlay");
-                if (lo) lo.style.display = "none";
-            }
-
-            const statusEl = document.getElementById("status");
-            statusEl.textContent = state.status.toUpperCase();
-            statusEl.className = "value " + getStatusClass(state.status);
-            document.getElementById("status-sub").textContent = "Updated " + new Date(state.updated_at * 1000).toLocaleTimeString();
-            document.getElementById("card-status").className = "card" + (state.process_alive ? " highlight" : "");
-
-            document.getElementById("current-algo").textContent = state.current_algorithm || "-";
-            const nComp = (state.completed_algorithms || []).length;
-            const overallProg = state.overall_progress || 0;
-            const nCompletedInt = Math.floor(overallProg);
-            document.getElementById("algo-sub").textContent = nComp > 0 ? nComp + " completed" : "Waiting...";
-
-            document.getElementById("progress-pct").textContent = (state.progress_pct || 0).toFixed(1) + "%";
-            document.getElementById("progress-sub").textContent = formatNumber(state.current_step) + " / " + formatNumber(state.total_step) + " steps";
-
-            const pctClamped = Math.min(state.progress_pct || 0, 100);
-            document.getElementById("progress-bar").style.width = pctClamped + "%";
-            document.getElementById("progress-bar").textContent = pctClamped.toFixed(1) + "%";
-
-            document.getElementById("algo-badge").textContent = state.current_algorithm || "-";
-
-            const totalAlgos = state.total_algorithms || 17;
-            const overallPct = Math.round(overallProg / totalAlgos * 100);
-            document.getElementById("overall-progress").textContent = nCompletedInt + "/" + totalAlgos;
-            document.getElementById("overall-pct").textContent = overallPct + "% complete";
-            document.getElementById("overall-bar").style.width = overallPct + "%";
-            document.getElementById("overall-bar").textContent = overallPct + "%";
-            const badgeEl = document.getElementById("overall-badge");
-            if (badgeEl) {
-                const completedSpan = badgeEl.querySelector(".completed-algo-count");
-                const totalSpan = badgeEl.querySelector(".total-algo-count");
-                if (completedSpan) completedSpan.textContent = nCompletedInt;
-                if (totalSpan) totalSpan.textContent = totalAlgos;
-            }
-
-            document.getElementById("eta").textContent = formatTime(state.eta_seconds);
-            document.getElementById("elapsed").textContent = "Elapsed: " + formatTime(state.elapsed_seconds);
-
-            document.getElementById("it-per-sec").textContent = (state.it_per_sec || 0).toFixed(2) + " it/s";
-            document.getElementById("update-count").textContent = "Updates: " + formatNumber(state.update_count);
-
-            if (state.stderr_file) {
-                const fname = state.stderr_file.split(/[/\\]/).pop();
-                document.getElementById("run-info").textContent = fname;
-            }
-
-            const tbody = document.getElementById("results-body");
-            if (state.results && state.results.length > 0) {
-                const currentRunAlgos = new Set(state.results.filter(r => r.source === "current_run").map(r => r.algorithm));
-                tbody.innerHTML = state.results.map((r, i) => {
-                    const isHistorical = r.source === "historical";
-                    const algoCompleted = (state.completed_algorithms || []).includes(r.algorithm || "");
-                    const rowStatus = isHistorical ? "historical" : (state.status === "finished" ? "finished" : (algoCompleted ? "finished" : "running"));
-                    const opacity = isHistorical ? 'opacity:0.5;' : '';
-                    const srcTag = isHistorical ? ' <span style="font-size:0.7em;opacity:0.6;">(hist)</span>' : '';
-                    return '<tr style="' + opacity + '">' +
-                        '<td>' + (i + 1) + '</td>' +
-                        '<td>' + (r.algorithm || "-") + srcTag + '</td>' +
-                        '<td style="font-size:0.78em;opacity:0.7;">' + (r.environment || "-") + '</td>' +
-                        '<td>' + fmtVal(r.reward) + (r.reward_std ? ' ± ' + fmtVal(r.reward_std) : '') + '</td>' +
-                        '<td>' + fmtVal(r.latency) + '</td>' +
-                        '<td>' + fmtVal(r.energy) + '</td>' +
-                        '<td>' + fmtVal(r.deadline_miss_rate) + '</td>' +
-                        '<td>' + fmtVal(r.throughput) + '</td>' +
-                        '<td>' + fmtVal(r.comm_score) + '</td>' +
-                        '<td>' + fmtVal(r.train_time, 1) + 's' + (r.update_count ? ' <span style="font-size:0.7em;opacity:0.6;">upd=' + formatNumber(r.update_count) + '</span>' : '') + '</td>' +
-                        '<td>' + getStatusBadge(rowStatus) + '</td>' +
-                    '</tr>';
-                }).join("");
-            }
-
-            if (state.recent_logs && state.recent_logs.length > 0) {
-                const newHash = JSON.stringify(state.recent_logs.slice(-3));
-                if (newHash !== lastLogHash) {
-                    lastLogHash = newHash;
-                    const win = document.getElementById("log-window");
-                    win.innerHTML = "";
-                    const logs = state.recent_logs.slice(-50);
-                    for (const log of logs) {
-                        const div = document.createElement("div");
-                        div.className = "log-line log-" + (log.level || "info");
-                        div.textContent = "[" + log.time + "] [" + (log.level || "info").toUpperCase() + "] " + log.text;
-                        win.appendChild(div);
-                    }
-                    win.scrollTop = win.scrollHeight;
-                }
-            }
-
-            updateCharts(state.results);
+        async function apiGetJson(url) {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(response.status + ' ' + response.statusText);
+            return response.json();
         }
 
         async function loadRuns() {
-            try {
-                const res = await fetch("/api/runs");
-                if (res.ok) {
-                    const data = await res.json();
-                    availableRuns = data.runs || [];
-                    const sel = document.getElementById("run-select");
-                    sel.innerHTML = "";
-                    for (const run of availableRuns) {
-                        const opt = document.createElement("option");
-                        opt.value = run.run_id;
-                        const fname = (run.stderr || run.stdout || "").split(/[/\\]/).pop().replace(".err.log", "").replace(".log", "");
-                        opt.textContent = run.run_id + (fname ? " (" + fname + ")" : "");
-                        sel.appendChild(opt);
-                    }
-                    if (availableRuns.length > 0 && !currentRunId) {
-                        currentRunId = availableRuns[0].run_id;
-                        sel.value = currentRunId;
-                    }
-                    const emptyEl = document.getElementById("empty-state");
-                    if (emptyEl) emptyEl.style.display = availableRuns.length === 0 ? "block" : "none";
-                }
-            } catch (e) {
-                console.error("Failed to load runs:", e);
+            const data = await apiGetJson('/api/runs');
+            dashboardState.runs = data.runs || [];
+            if (!dashboardState.currentRunId && dashboardState.runs.length) {
+                dashboardState.currentRunId = dashboardState.runs[0].run_id;
+                dashboardState.selectedRunIds = dashboardState.runs.slice(0, 2).map(run => run.run_id);
             }
+            renderRunSelect();
+            renderRunOverview(dashboardState.runs);
+            await loadCompareData();
         }
 
-        async function switchRun(runId) {
-            currentRunId = runId;
-            if (es) { es.close(); es = null; }
-            if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-            await fetchInitialState();
+        async function fetchInitialRunState(runId) {
+            if (!runId) return null;
+            const state = await apiGetJson('/api/runs/' + encodeURIComponent(runId));
+            dashboardState.currentRunState = state;
+            renderRunDetail(state);
+            return state;
+        }
+
+        async function loadCompareData() {
+            const ids = dashboardState.selectedRunIds;
+            const hint = document.getElementById('compare-hint');
+            if (ids.length < 2) {
+                hint.textContent = 'Select at least two runs to compare.';
+                renderCompareChart(null);
+                renderCompareTable(null);
+                return;
+            }
+            hint.textContent = ids.length + ' runs selected.';
+            const url = '/api/compare?run_ids=' + encodeURIComponent(ids.join(',')) + '&metric=' + encodeURIComponent(dashboardState.selectedMetric);
+            const payload = await apiGetJson(url);
+            renderCompareChart(payload);
+            renderCompareTable(payload);
+        }
+
+        function exportResults(format) {
+            const ids = dashboardState.selectedRunIds.length ? dashboardState.selectedRunIds : dashboardState.runs.map(run => run.run_id);
+            const query = ids.length ? '?run_ids=' + encodeURIComponent(ids.join(',')) : '';
+            const url = format === 'csv' ? '/api/export/results.csv' + query : '/api/export/results.md' + query;
+            window.open(url, '_blank');
+        }
+
+        function applyRunFilters(runs) {
+            const status = dashboardState.filters.status;
+            const keyword = dashboardState.filters.keyword.toLowerCase();
+            return runs.filter(run => {
+                const statusOk = status === 'all' || run.status === status;
+                const text = [run.run_id, run.display_name, run.current_algorithm, run.source_type, run.last_error].join(' ').toLowerCase();
+                return statusOk && (!keyword || text.includes(keyword));
+            });
+        }
+
+        function renderRunOverview(runs) {
+            const root = document.getElementById('run-overview');
+            const filtered = applyRunFilters(runs);
+            if (!filtered.length) {
+                root.innerHTML = '<div class="empty">No runs match the current filters.</div>';
+                return;
+            }
+            root.innerHTML = filtered.map(run => {
+                const checked = dashboardState.selectedRunIds.includes(run.run_id) ? 'checked' : '';
+                const active = run.run_id === dashboardState.currentRunId ? ' active' : '';
+                return '<div class="run-tile' + active + '" onclick="selectRun(\'' + escapeAttr(run.run_id) + '\')">' +
+                    '<div class="run-tile-header"><div class="run-id">' + escapeHtml(run.run_id) + '</div><label onclick="event.stopPropagation()" class="muted"><input type="checkbox" ' + checked + ' onchange="toggleCompareRun(\'' + escapeAttr(run.run_id) + '\', this.checked)"> Compare</label></div>' +
+                    '<div class="run-grid">' +
+                    '<span>Status</span><span>' + getStatusBadge(run.status) + '</span>' +
+                    '<span>Algorithm</span><span>' + escapeHtml(run.current_algorithm || '-') + '</span>' +
+                    '<span>Progress</span><span>' + fmtVal(run.progress_pct, 1) + '%</span>' +
+                    '<span>Overall</span><span>' + fmtVal(run.overall_progress, 2) + ' / ' + (run.total_algorithms || '-') + '</span>' +
+                    '<span>Source</span><span>' + escapeHtml(run.source_type || '-') + '</span>' +
+                    '<span>Updated</span><span>' + formatTimestamp(run.updated_at) + '</span>' +
+                    (run.last_error ? '<span>Error</span><span>' + escapeHtml(run.last_error) + '</span>' : '') +
+                    '</div></div>';
+            }).join('');
+        }
+
+        async function selectRun(runId) {
+            dashboardState.currentRunId = runId;
+            document.getElementById('run-select').value = runId;
+            closeSSE();
+            await fetchInitialRunState(runId);
+            renderRunOverview(dashboardState.runs);
             initSSE();
         }
 
-        async function stopDashboard() {
-            if (!confirm("Stop the dashboard server?\n\nThis will close the server and you will need to restart it manually.")) {
+        function toggleCompareRun(runId, checked) {
+            if (checked && !dashboardState.selectedRunIds.includes(runId)) dashboardState.selectedRunIds.push(runId);
+            if (!checked) dashboardState.selectedRunIds = dashboardState.selectedRunIds.filter(id => id !== runId);
+            loadCompareData().catch(console.error);
+        }
+
+        function renderRunSelect() {
+            const select = document.getElementById('run-select');
+            select.innerHTML = dashboardState.runs.map(run => '<option value="' + escapeAttr(run.run_id) + '">' + escapeHtml(run.run_id) + '</option>').join('');
+            if (dashboardState.currentRunId) select.value = dashboardState.currentRunId;
+        }
+
+        function renderRunDetail(state) {
+            renderMetricCards(state);
+            renderResultsTable(state.results || []);
+            renderLogs(state.recent_logs || []);
+            renderErrorSummary(state.recent_logs || []);
+            updateCharts(state);
+            document.getElementById('run-info').textContent = (state.source_type || 'unknown') + ' source';
+        }
+
+        function renderMetricCards(state) {
+            document.getElementById('status').textContent = (state.status || 'idle').toUpperCase();
+            document.getElementById('status-sub').textContent = 'Updated ' + formatTimestamp(state.updated_at);
+            document.getElementById('current-algo').textContent = state.current_algorithm || '-';
+            document.getElementById('algo-sub').textContent = (state.completed_algorithms || []).length + ' completed';
+            document.getElementById('progress-pct').textContent = fmtVal(state.progress_pct, 1) + '%';
+            document.getElementById('progress-sub').textContent = formatNumber(state.current_step) + ' / ' + formatNumber(state.total_step) + ' steps';
+            document.getElementById('overall-progress').textContent = Math.floor(state.overall_progress || 0) + '/' + (state.total_algorithms || 17);
+            const overallPct = Math.min(100, Math.round(((state.overall_progress || 0) / (state.total_algorithms || 17)) * 100));
+            document.getElementById('overall-pct').textContent = overallPct + '% complete';
+            document.getElementById('eta').textContent = formatTime(state.eta_seconds);
+            document.getElementById('elapsed').textContent = 'Elapsed: ' + formatTime(state.elapsed_seconds);
+            document.getElementById('it-per-sec').textContent = fmtVal(state.it_per_sec, 2) + ' it/s';
+            document.getElementById('update-count').textContent = 'Updates: ' + formatNumber(state.update_count);
+            document.getElementById('elapsed-stat').textContent = formatTime(state.elapsed_seconds);
+            setBar('progress-bar', state.progress_pct || 0);
+            setBar('overall-bar', overallPct);
+        }
+
+        function renderResultsTable(results) {
+            const body = document.getElementById('results-body');
+            if (!results.length) {
+                body.innerHTML = '<tr><td colspan="11" class="empty">No results yet</td></tr>';
                 return;
             }
-            try {
-                await fetch("/api/shutdown", { method: "POST" });
-            } catch (e) {
-                // Expected to fail as server is shutting down
+            body.innerHTML = results.map(result => '<tr>' +
+                '<td>' + escapeHtml(result.algorithm || '-') + '</td>' +
+                '<td>' + escapeHtml(result.environment || '-') + '</td>' +
+                '<td>' + fmtVal(result.reward, 4) + (result.reward_std ? ' +/- ' + fmtVal(result.reward_std, 4) : '') + '</td>' +
+                '<td>' + fmtVal(result.latency, 4) + '</td>' +
+                '<td>' + fmtVal(result.energy, 4) + '</td>' +
+                '<td>' + fmtVal(result.deadline_miss_rate, 4) + '</td>' +
+                '<td>' + fmtVal(result.throughput, 4) + '</td>' +
+                '<td>' + fmtVal(result.comm_score, 4) + '</td>' +
+                '<td>' + fmtVal(result.train_time, 1) + '</td>' +
+                '<td>' + getStatusBadge(result.status || 'finished') + '</td>' +
+                '<td>' + escapeHtml(result.source || '-') + '</td>' +
+                '</tr>').join('');
+        }
+
+        function updateCharts(state) {
+            const results = (state && state.results) || [];
+            updateBarChart(dashboardState.charts.rewardChart, results, 'reward', 'Reward');
+            updateBarChart(dashboardState.charts.timeChart, results, 'train_time', 'Train Time');
+        }
+
+        function updateBarChart(chart, results, field, label) {
+            if (!chart) return;
+            const rows = results.filter(result => result[field] !== null && result[field] !== undefined);
+            chart.data.labels = rows.map(result => result.algorithm);
+            chart.data.datasets = [{
+                label,
+                data: rows.map(result => Number(result[field]) || 0),
+                backgroundColor: rows.map(result => ALGO_COLORS[result.algorithm] || '#5f83ff')
+            }];
+            chart.update('none');
+        }
+
+        function applyLogFilters(logs) {
+            const level = dashboardState.filters.logLevel;
+            const keyword = dashboardState.filters.logKeyword.toLowerCase();
+            return logs.filter(log => {
+                const logLevel = log.level || 'info';
+                const levelOk = level === 'all' || logLevel === level;
+                const text = (log.text || '').toLowerCase();
+                return levelOk && (!keyword || text.includes(keyword));
+            });
+        }
+
+        function renderLogs(logs) {
+            const win = document.getElementById('log-window');
+            const filtered = applyLogFilters(logs);
+            if (!filtered.length) {
+                win.innerHTML = '<div class="log-line muted">No logs match the current filters.</div>';
+                return;
             }
-            document.body.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;color:#fff;font-family:Segoe UI,Arial,sans-serif;"><h1>Dashboard Stopped</h1><p>The server has been shut down. You can close this tab.</p></div>';
+            win.innerHTML = filtered.map(log => {
+                const text = '[' + (log.time || '-') + '] [' + (log.level || 'info').toUpperCase() + '] ' + (log.text || '');
+                return '<div class="log-line log-' + escapeAttr(log.level || 'info') + '" onclick="copyLogLine(\'' + escapeAttr(text) + '\')">' + escapeHtml(text) + '</div>';
+            }).join('');
+            if (dashboardState.filters.autoScroll) win.scrollTop = win.scrollHeight;
+        }
+
+        function copyLogLine(text) {
+            if (navigator.clipboard) navigator.clipboard.writeText(text).catch(function() {});
+        }
+
+        function renderErrorSummary(logs) {
+            const errors = logs.filter(log => log.level === 'error');
+            document.getElementById('error-summary').textContent = errors.length ? errors[errors.length - 1].text : 'No recent errors';
+        }
+
+        function renderCompareChart(payload) {
+            const chart = dashboardState.charts.compareChart;
+            if (!chart) return;
+            if (!payload) {
+                chart.data.labels = [];
+                chart.data.datasets = [];
+                chart.update('none');
+                return;
+            }
+            chart.data.labels = payload.algorithms || [];
+            chart.data.datasets = (payload.run_ids || []).map((runId, index) => ({
+                label: runId,
+                data: (payload.series || []).map(series => {
+                    const point = (series.values || []).find(item => item.run_id === runId);
+                    return point && point.value !== null && point.value !== undefined ? point.value : 0;
+                }),
+                backgroundColor: ['#5f83ff', '#1f9d67', '#d88c3a', '#d64b6a'][index % 4]
+            }));
+            chart.update('none');
+        }
+
+        function renderCompareTable(payload) {
+            const body = document.getElementById('compare-table-body');
+            if (!payload) {
+                body.innerHTML = '<tr><td colspan="3" class="empty">Select at least two runs to compare.</td></tr>';
+                return;
+            }
+            const rows = [];
+            for (const series of payload.series || []) {
+                for (const item of series.values || []) {
+                    rows.push('<tr><td>' + escapeHtml(series.algorithm) + '</td><td>' + escapeHtml(item.run_id) + '</td><td>' + fmtVal(item.value, 4) + '</td></tr>');
+                }
+            }
+            body.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="3" class="empty">No comparable values.</td></tr>';
         }
 
         function initSSE() {
-            if (es) es.close();
-            if (reconnectTimer) clearTimeout(reconnectTimer);
-            const connStatus = document.getElementById("connection-status");
-            const rid = currentRunId || "latest";
-            es = new EventSource("/api/runs/" + rid + "/events");
+            closeSSE();
+            const runId = dashboardState.currentRunId;
+            if (!runId) return;
+            const status = document.getElementById('connection-status');
+            const es = new EventSource('/api/runs/' + encodeURIComponent(runId) + '/events');
+            dashboardState.sse.eventSource = es;
             es.onopen = function() {
-                if (connStatus) connStatus.style.display = "none";
+                dashboardState.sse.connected = true;
+                status.style.display = 'none';
             };
-            es.onmessage = function(e) {
-                if (connStatus) connStatus.style.display = "none";
-                try {
-                    const state = JSON.parse(e.data);
-                    updateDashboard(state);
-                } catch (err) {
-                    console.error("Parse error:", err);
-                }
-            };
+            es.addEventListener('snapshot', function(event) {
+                const state = JSON.parse(event.data);
+                dashboardState.currentRunState = state;
+                renderRunDetail(state);
+            });
             es.onerror = function() {
-                if (connStatus) connStatus.style.display = "block";
-                es.close();
-                reconnectTimer = setTimeout(initSSE, 3000);
+                dashboardState.sse.connected = false;
+                status.style.display = 'block';
+                closeSSE();
+                dashboardState.sse.reconnectTimer = setTimeout(initSSE, 3000);
             };
         }
 
-        async function fetchInitialState() {
-            try {
-                const rid = currentRunId || "latest";
-                const res = await fetch("/api/runs/" + rid);
-                if (res.ok) {
-                    const state = await res.json();
-                    updateDashboard(state);
-                }
-            } catch (e) {
-                console.error("Failed to fetch initial state:", e);
-            }
+        function closeSSE() {
+            if (dashboardState.sse.eventSource) dashboardState.sse.eventSource.close();
+            if (dashboardState.sse.reconnectTimer) clearTimeout(dashboardState.sse.reconnectTimer);
+            dashboardState.sse.eventSource = null;
+            dashboardState.sse.reconnectTimer = null;
         }
 
-        document.addEventListener("DOMContentLoaded", async function() {
+        async function stopDashboardServer() {
+            const message = 'Stop Dashboard Server?\n\nThis only stops the dashboard server. It does not stop paper2 training jobs.';
+            if (!confirm(message)) return;
+            try { await fetch('/api/shutdown', { method: 'POST' }); } catch (error) {}
+            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;color:#eef3ff;font-family:Segoe UI,Arial,sans-serif;"><div><h1>Dashboard Server Stopped</h1><p>This did not stop paper2 training jobs.</p></div></div>';
+        }
+
+        function getStatusBadge(status) {
+            const cls = 'badge-' + (status || 'idle');
+            return '<span class="badge ' + cls + '">' + escapeHtml(status || 'idle') + '</span>';
+        }
+
+        function formatTime(seconds) {
+            if (!seconds || seconds <= 0) return '-';
+            seconds = Math.floor(seconds);
+            if (seconds >= 3600) return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
+            if (seconds >= 60) return Math.floor(seconds / 60) + 'm ' + (seconds % 60) + 's';
+            return seconds + 's';
+        }
+
+        function formatNumber(value) {
+            if (value === null || value === undefined || value === '') return '-';
+            return Number(value).toLocaleString();
+        }
+
+        function fmtVal(value, decimals) {
+            if (value === null || value === undefined || value === '') return '-';
+            const num = Number(value);
+            return Number.isFinite(num) ? num.toFixed(decimals === undefined ? 2 : decimals) : '-';
+        }
+
+        function formatTimestamp(value) {
+            if (!value) return '-';
+            return new Date(value * 1000).toLocaleTimeString();
+        }
+
+        function setBar(id, value) {
+            const pct = Math.max(0, Math.min(100, Number(value) || 0));
+            const el = document.getElementById(id);
+            el.style.width = pct + '%';
+            el.textContent = pct.toFixed(1) + '%';
+        }
+
+        function escapeHtml(value) {
+            return String(value === undefined || value === null ? '' : value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+        }
+
+        function escapeAttr(value) {
+            return escapeHtml(value).replace(/\\/g, '\\\\').replace(/\n/g, ' ');
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
             initCharts();
+            document.getElementById('status-filter').addEventListener('change', event => {
+                dashboardState.filters.status = event.target.value;
+                renderRunOverview(dashboardState.runs);
+            });
+            document.getElementById('run-keyword-filter').addEventListener('input', event => {
+                dashboardState.filters.keyword = event.target.value;
+                renderRunOverview(dashboardState.runs);
+            });
+            document.getElementById('compare-metric').addEventListener('change', event => {
+                dashboardState.selectedMetric = event.target.value;
+                loadCompareData().catch(console.error);
+            });
+            document.getElementById('log-level-filter').addEventListener('change', event => {
+                dashboardState.filters.logLevel = event.target.value;
+                renderLogs((dashboardState.currentRunState && dashboardState.currentRunState.recent_logs) || []);
+            });
+            document.getElementById('log-keyword-filter').addEventListener('input', event => {
+                dashboardState.filters.logKeyword = event.target.value;
+                renderLogs((dashboardState.currentRunState && dashboardState.currentRunState.recent_logs) || []);
+            });
+            document.getElementById('log-autoscroll-toggle').addEventListener('change', event => {
+                dashboardState.filters.autoScroll = event.target.checked;
+            });
             await loadRuns();
-            await fetchInitialState();
+            await fetchInitialRunState(dashboardState.currentRunId);
             initSSE();
         });
     </script>
