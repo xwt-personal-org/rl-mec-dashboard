@@ -35,3 +35,25 @@ def test_none_values_export_as_empty_string():
 
     assert rows[0]["reward"] == ""
     assert rows[0]["latency"] == ""
+
+
+def test_export_includes_new_result_fields():
+    result = AlgorithmResult(
+        algorithm="GRPO",
+        seed=42,
+        device="cpu",
+        train_timesteps=100000,
+        checkpoint_dir="checkpoints/GRPO",
+        result_path="artifacts/GRPO/result.json",
+    )
+    state = RunState(run_id="r1", results=[result])
+    rows = list(csv.DictReader(io.StringIO(results_to_csv([state]))))
+    markdown = results_to_markdown([state])
+
+    assert rows[0]["seed"] == "42"
+    assert rows[0]["device"] == "cpu"
+    assert rows[0]["train_timesteps"] == "100000"
+    assert rows[0]["checkpoint_dir"] == "checkpoints/GRPO"
+    assert rows[0]["result_path"] == "artifacts/GRPO/result.json"
+    assert "| Run | Algorithm | Reward |" in markdown
+    assert "cpu" in markdown

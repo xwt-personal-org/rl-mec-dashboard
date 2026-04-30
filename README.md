@@ -4,10 +4,10 @@
 
 ## 功能
 
-- 实时状态监控：当前算法、训练进度、速度、ETA、日志摘要。
-- 多运行总览：支持 legacy logs、structured runs 和 mixed runs。
-- 结构化协议优先：优先读取 `runs/<run_id>/` 下的 JSON/JSONL 文件。
-- Legacy fallback：没有 structured runs 时继续读取 `logs/benchmark*.log` 和 `results/benchmark.json`。
+- 实时状态监控：优先读取 `experiments/<run_id>/state.json`，展示当前算法、状态、日志和结果。
+- 多运行总览：固定显示 Full 17 与 Quick 入口，并兼容 legacy logs、structured runs 和 mixed runs。
+- paper2 实验协议优先：优先读取 `experiments/<run_id>/run.json`、`state.json` 和每算法 artifacts。
+- Legacy fallback：没有 paper2 experiments 时继续读取旧 `runs/`、`logs/benchmark*.log` 和 `results/benchmark.json`。
 - 多实验对比：`/api/compare` 支持按 reward、latency、energy 等指标对比。
 - 结果导出：支持 CSV 和 Markdown 表格导出。
 - SSE 实时推送：前端通过 Server-Sent Events 刷新 run snapshot。
@@ -17,19 +17,22 @@
 
 ### 命令行
 
-Legacy 模式保持兼容：
+推荐 paper2 experiments 模式：
 
 ```bash
 C:\Users\22003\paper2\paper2\.venv\Scripts\python.exe serve_dashboard.py \
+    --experiments-dir C:\Users\22003\paper2\paper2\experiments \
+    --results-dir C:\Users\22003\paper2\paper2\results \
     --logs-dir C:\Users\22003\paper2\paper2\logs \
-    --benchmark-json C:\Users\22003\paper2\paper2\results\benchmark.json \
     --host 127.0.0.1 --port 8088
 ```
 
-Structured 模式增加可选 `--runs-dir`：
+Legacy fallback 仍可显式传入旧路径：
 
 ```bash
 C:\Users\22003\paper2\paper2\.venv\Scripts\python.exe serve_dashboard.py \
+    --experiments-dir C:\Users\22003\paper2\paper2\experiments \
+    --results-dir C:\Users\22003\paper2\paper2\results \
     --logs-dir C:\Users\22003\paper2\paper2\logs \
     --benchmark-json C:\Users\22003\paper2\paper2\results\benchmark.json \
     --runs-dir C:\Users\22003\paper2\paper2\runs \
@@ -41,20 +44,26 @@ C:\Users\22003\paper2\paper2\.venv\Scripts\python.exe serve_dashboard.py \
 ### Windows 启动脚本
 
 - `start_dashboard.vbs`：静默启动并打开浏览器。
-- `start_dashboard.bat`：底层启动脚本。
+- `start_dashboard.bat`：可见控制台启动，便于查看 server 输出。
 
 页面上的 `Stop Dashboard Server` 只关闭 dashboard server；它不停止训练、不清理训练进程、不修改 paper2 输出。
 
+固定入口：
+
+- Full 17 run id：`paper2_full_17_vscode`
+- Quick run id：`vscode_quick`
+- Quick smoke test 只用于入口连通性和失败定位，不作为正式论文结果。
+
 ## 数据源优先级
 
-1. Structured run files：`runs/<run_id>/run_meta.json`、`events.jsonl`、`metrics.jsonl`、`summary.json`
-2. Legacy aggregate file：`results/benchmark.json`
-3. Legacy logs：`logs/benchmark*.log`、`logs/benchmark*.err.log`
+1. paper2 实时状态：`experiments/<run_id>/run.json` + `experiments/<run_id>/state.json`
+2. 每算法结果：`experiments/<run_id>/artifacts/<ALGORITHM>/result.json`
+3. benchmark 图表导出：`results/benchmark_<run_id>.json`
+4. legacy fallback：旧 `runs/`、`logs/`、`results/benchmark.json`
 
 详见：
 
-- `docs/structured-protocol.md`
-- `docs/paper2-dashboard-writer-reference.md`
+- `docs/paper2-experiment-architecture-sync.md`
 
 ## API
 
@@ -62,6 +71,9 @@ C:\Users\22003\paper2\paper2\.venv\Scripts\python.exe serve_dashboard.py \
 - `GET /api/runs`
 - `GET /api/runs/{run_id}`
 - `GET /api/runs/{run_id}/events`
+- `GET /api/runs/{run_id}/logs/{algorithm}/stdout`
+- `GET /api/runs/{run_id}/logs/{algorithm}/stderr`
+- `GET /api/runs/{run_id}/benchmark`
 - `GET /api/compare?run_ids=a,b&metric=reward`
 - `GET /api/export/results.csv?run_ids=a,b`
 - `GET /api/export/results.md?run_ids=a,b`

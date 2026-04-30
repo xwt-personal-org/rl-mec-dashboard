@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from dashboard.config import DashboardConfig
+from dashboard.experiment_reader import Paper2ExperimentReader
 from dashboard.log_parser import parse_log_line
 from dashboard.models import AlgorithmResult, RecentLogEntry, RunDescriptor, RunState
 from dashboard.protocol_reader import StructuredRunReader
@@ -23,7 +25,7 @@ class RunStateAggregator:
             source_type=descriptor.source_type,
             stdout_file=str(descriptor.stdout_file or ""),
             stderr_file=str(descriptor.stderr_file or ""),
-            has_structured_protocol=descriptor.source_type in ("structured", "mixed"),
+            has_structured_protocol=_is_legacy_structured_source(descriptor.source_type),
             last_log_time=descriptor.mtime,
             updated_at=descriptor.mtime,
         )
@@ -78,6 +80,11 @@ class RunStateAggregator:
             "comm_score",
             "update_count",
             "environment",
+            "seed",
+            "device",
+            "train_timesteps",
+            "checkpoint_dir",
+            "result_path",
         )
         for algorithm, result in by_algorithm.items():
             fallbacks = sorted(grouped.get(algorithm, []), key=_result_priority, reverse=True)
@@ -120,15 +127,113 @@ class RunStateAggregator:
             state.status = "idle"
         return state
 
+    def scan_experiment_once(self, descriptor: RunDescriptor, state: RunState) -> RunState:
+        if descriptor.source_type == "placeholder":
+            state.run_id = descriptor.run_id
+            state.display_name = descriptor.display_name
+            state.status = "initialized"
+            state.source_type = "placeholder"
+            state.records = []
+            state.current_algorithm = ""
+            state.current_index = 0
+            state.progress_pct = 0.0
+            state.overall_progress = 0.0
+            state.total_algorithms = 0
+            state.benchmark_export_path = str(descriptor.benchmark_export_file or "")
+            state.updated_at = time.time()
+            return state
+
+        reader = Paper2ExperimentReader(descriptor.experiment_dir or Path(descriptor.run_id))
+        manifest, manifest_error = reader.read_run_manifest()
+        snapshot, snapshot_error = reader.read_state_snapshot(manifest)
+        records = snapshot.records if snapshot is not None else []
+        completed = snapshot.completed_algorithms if snapshot is not None else []
+        run_id = (
+            snapshot.run_id
+            if snapshot is not None and snapshot.run_id
+            else manifest.run_id
+            if manifest is not None and manifest.run_id
+            else descriptor.run_id
+        )
+        display_name = (
+            manifest.name
+            if manifest is not None and manifest.name
+            else descriptor.display_name
+            if descriptor.display_name
+            else run_id
+        )
+
+        state.run_id = run_id
+        state.display_name = display_name
+        state.status = snapshot.status if snapshot is not None else "initialized"
+        state.source_type = descriptor.source_type
+        state.has_structured_protocol = False
+        state.records = records
+        state.completed_algorithms = list(completed)
+        state.total_algorithms = len(records)
+        state.current_index = snapshot.current_index if snapshot is not None else 0
+        state.current_algorithm = _current_algorithm(records, state.current_index)
+        state.progress_pct = round(len(completed) / len(records) * 100, 2) if records else 0.0
+        state.overall_progress = float(len(completed))
+        state.stop_requested = snapshot.stop_requested if snapshot is not None else False
+        state.last_error = snapshot.last_error if snapshot is not None and snapshot.last_error else ""
+        state.schema_version = snapshot.schema_version if snapshot is not None else 1
+        state.process_marker_exists = reader.process_json_path.exists()
+        state.possibly_stale = (
+            state.process_marker_exists
+            and state.status == "running"
+            and _snapshot_age_seconds(snapshot.updated_at if snapshot is not None else "") > self.config.stall_threshold_sec
+        )
+        state.run_manifest_path = str(reader.run_json_path)
+        state.state_path = str(reader.state_json_path)
+        state.process_path = str(reader.process_json_path)
+        state.benchmark_export_path = str(descriptor.benchmark_export_file or "")
+        state.results = []
+        state.recent_logs = []
+
+        for record in records:
+            if getattr(record, "status", "") != "completed":
+                continue
+            result, result_error = reader.read_algorithm_result(record)
+            if result is not None:
+                state.results.append(result)
+            elif result_error:
+                if result_error.startswith("result file missing:"):
+                    record.result_missing = True
+                state.recent_logs.append(
+                    RecentLogEntry(
+                        time="",
+                        level="warn",
+                        text=f"Result file missing for {record.name}: {getattr(record, 'result_path', '')}"
+                        if result_error.startswith("result file missing:")
+                        else result_error,
+                        source_file=getattr(record, "result_path", ""),
+                    )
+                )
+        state.updated_at = time.time()
+
+        for error in (manifest_error, snapshot_error):
+            if error:
+                state.recent_logs.append(RecentLogEntry(time="", level="warn", text=error, source_file=""))
+        if len(state.recent_logs) > self.config.recent_log_limit:
+            state.recent_logs = state.recent_logs[-self.config.recent_log_limit :]
+        fallback_results = load_benchmark_results(descriptor.benchmark_export_file) if descriptor.benchmark_export_file else []
+        if fallback_results:
+            self.merge_results(state, fallback_results)
+        return state
+
     def scan_once(self, descriptor: RunDescriptor, state: RunState) -> RunState:
         try:
+            if descriptor.source_type in {"experiment_state", "placeholder"}:
+                return self.scan_experiment_once(descriptor, state)
+
             state.source_type = descriptor.source_type
-            state.has_structured_protocol = descriptor.source_type in ("structured", "mixed")
+            state.has_structured_protocol = _is_legacy_structured_source(descriptor.source_type)
             state.stdout_file = str(descriptor.stdout_file or state.stdout_file or "")
             state.stderr_file = str(descriptor.stderr_file or state.stderr_file or "")
             state.last_log_time = max(state.last_log_time, descriptor.mtime)
 
-            if descriptor.run_dir and descriptor.source_type in ("structured", "mixed"):
+            if descriptor.run_dir and _is_legacy_structured_source(descriptor.source_type):
                 reader = StructuredRunReader(descriptor.run_dir)
                 meta = reader.read_meta()
                 if meta:
@@ -272,6 +377,32 @@ def _coerce_result(result: AlgorithmResult | dict[str, Any] | None) -> Algorithm
         source=result.get("source", "log"),
         status=result.get("status", "finished"),
     )
+
+
+def _current_algorithm(records: list[Any], current_index: int) -> str:
+    if 0 <= current_index < len(records):
+        return str(getattr(records[current_index], "name", ""))
+    for record in records:
+        if getattr(record, "status", "") != "completed":
+            return str(getattr(record, "name", ""))
+    return ""
+
+
+def _is_legacy_structured_source(source_type: str) -> bool:
+    return source_type in {"legacy_structured", "structured", "mixed"}
+
+
+def _snapshot_age_seconds(updated_at: str) -> float:
+    if not updated_at:
+        return 0.0
+    try:
+        normalized = updated_at.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(normalized)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return max(0.0, time.time() - dt.timestamp())
+    except ValueError:
+        return 0.0
 
 
 def _result_priority(result: AlgorithmResult) -> int:

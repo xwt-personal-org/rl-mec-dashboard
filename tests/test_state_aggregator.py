@@ -23,11 +23,11 @@ def make_config(tmp_path=None):
 
 
 def test_initialize_state_sets_descriptor_fields():
-    descriptor = RunDescriptor(run_id="run_001", source_type="structured", mtime=1.0, display_name="run_001")
+    descriptor = RunDescriptor(run_id="run_001", source_type="legacy_structured", mtime=1.0, display_name="run_001")
     state = RunStateAggregator(make_config()).initialize_state(descriptor)
 
     assert state.run_id == "run_001"
-    assert state.source_type == "structured"
+    assert state.source_type == "legacy_structured"
     assert state.has_structured_protocol is True
     assert state.last_log_time == 1.0
 
@@ -139,7 +139,7 @@ def test_scan_once_legacy_applies_events_and_benchmark_backfill():
 def test_scan_once_structured_reads_protocol():
     descriptor = RunDescriptor(
         run_id="run_001",
-        source_type="structured",
+        source_type="legacy_structured",
         mtime=time.time(),
         display_name="run_001",
         run_dir="tests/fixtures/structured/run_001",

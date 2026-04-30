@@ -7,11 +7,24 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-RunStatus = Literal["idle", "running", "finished", "stalled", "degraded", "failed"]
+ExperimentStatus = Literal["initialized", "running", "stop_requested", "stopped", "completed", "failed"]
+AlgorithmStatus = Literal["pending", "running", "completed", "interrupted", "failed", "skipped"]
+SourceType = Literal["experiment_state", "legacy_structured", "legacy_log", "mixed", "placeholder"]
+RunStatus = Literal[
+    "idle",
+    "running",
+    "finished",
+    "stalled",
+    "degraded",
+    "failed",
+    "initialized",
+    "stop_requested",
+    "stopped",
+    "completed",
+]
 ResultSource = Literal["structured", "log", "benchmark_json", "historical"]
 ResultStatus = Literal["pending", "running", "finished", "failed", "historical"]
 LogLevel = Literal["debug", "info", "warn", "error"]
-SourceType = Literal["structured", "legacy_log", "mixed"]
 
 
 @dataclass
@@ -27,8 +40,35 @@ class AlgorithmResult:
     comm_score: float | None = None
     update_count: int | None = None
     environment: str = ""
+    seed: int | None = None
+    device: str = ""
+    train_timesteps: int | None = None
+    checkpoint_dir: str = ""
+    result_path: str = ""
+    final_eval: dict[str, Any] = field(default_factory=dict)
     source: ResultSource = "log"
     status: ResultStatus = "finished"
+
+
+@dataclass
+class AlgorithmRunRecord:
+    name: str
+    status: str = "pending"
+    attempts: int = 0
+    started_at: str | None = None
+    finished_at: str | None = None
+    exit_code: int | None = None
+    device: str = ""
+    result_path: str = ""
+    checkpoint_dir: str = ""
+    stdout_path: str = ""
+    stderr_path: str = ""
+    error: str | None = None
+    result_missing: bool = False
+
+    def __post_init__(self) -> None:
+        if self.status not in {"failed", "interrupted"}:
+            self.error = None
 
 
 @dataclass
@@ -37,6 +77,45 @@ class RecentLogEntry:
     level: LogLevel
     text: str
     source_file: str = ""
+
+
+@dataclass
+class AlgorithmSpec:
+    name: str
+    config_path: str = ""
+    timesteps: int | None = None
+    seed: int | None = None
+    device: str = ""
+    env: str = ""
+    eval_episodes: int | None = None
+    extra_args: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ExperimentRunManifest:
+    schema_version: int
+    run_id: str
+    name: str
+    created_at: str
+    updated_at: str
+    algorithms: list[AlgorithmSpec]
+    project_root: str
+    output_dir: str
+    experiment_dir: str
+    metadata: dict[str, Any]
+
+
+@dataclass
+class ExperimentStateSnapshot:
+    schema_version: int
+    run_id: str
+    status: str
+    current_index: int
+    records: list[AlgorithmRunRecord]
+    completed_algorithms: list[str]
+    stop_requested: bool
+    last_error: str | None
+    updated_at: str
 
 
 @dataclass
@@ -60,6 +139,12 @@ class RunDescriptor:
     source_type: SourceType = "legacy_log"
     mtime: float = 0.0
     display_name: str = ""
+    experiment_dir: Path | None = None
+    run_json_file: Path | None = None
+    state_json_file: Path | None = None
+    process_json_file: Path | None = None
+    benchmark_export_file: Path | None = None
+    is_placeholder: bool = False
     run_dir: Path | None = None
     stdout_file: Path | None = None
     stderr_file: Path | None = None
@@ -80,12 +165,14 @@ class RunSummary:
     source_type: SourceType = "legacy_log"
     has_error: bool = False
     last_error: str = ""
+    is_placeholder: bool = False
 
 
 @dataclass
 class RunState:
     run_id: str
     status: RunStatus = "idle"
+    display_name: str = ""
     current_algorithm: str = ""
     current_step: int = 0
     total_step: int = 500000
@@ -94,9 +181,12 @@ class RunState:
     eta_seconds: int = 0
     elapsed_seconds: float = 0.0
     update_count: int = 0
+    records: list[AlgorithmRunRecord | dict[str, Any]] = field(default_factory=list)
+    current_index: int = 0
     completed_algorithms: list[str] = field(default_factory=list)
     results: list[AlgorithmResult | dict[str, Any]] = field(default_factory=list)
     last_error: str = ""
+    stop_requested: bool = False
     updated_at: float = field(default_factory=time.time)
     process_alive: bool = False
     recent_logs: list[RecentLogEntry | dict[str, Any]] = field(default_factory=list)
@@ -107,6 +197,13 @@ class RunState:
     stdout_file: str = ""
     has_structured_protocol: bool = False
     source_type: SourceType = "legacy_log"
+    run_manifest_path: str = ""
+    state_path: str = ""
+    process_path: str = ""
+    benchmark_export_path: str = ""
+    process_marker_exists: bool = False
+    possibly_stale: bool = False
+    schema_version: int = 1
     log_offsets: dict[str, int] = field(default_factory=dict)
     event_offsets: dict[str, int] = field(default_factory=dict)
     last_log_time: float = field(default_factory=time.time)

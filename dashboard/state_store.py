@@ -127,7 +127,7 @@ class DashboardStateStore:
 def _summary_from_state(descriptor: RunDescriptor, state: RunState) -> RunSummary:
     return RunSummary(
         run_id=state.run_id,
-        display_name=descriptor.display_name or state.run_id,
+        display_name=state.display_name or descriptor.display_name or state.run_id,
         status=state.status,
         current_algorithm=state.current_algorithm,
         progress_pct=state.progress_pct,
@@ -137,4 +137,5 @@ def _summary_from_state(descriptor: RunDescriptor, state: RunState) -> RunSummar
         source_type=state.source_type,
         has_error=bool(state.last_error or state.degraded),
         last_error=state.last_error,
+        is_placeholder=descriptor.is_placeholder,
     )

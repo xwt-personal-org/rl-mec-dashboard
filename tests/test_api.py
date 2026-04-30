@@ -65,7 +65,7 @@ def test_health_endpoint(api_base_url):
 
     assert status == 200
     assert payload["status"] == "ok"
-    assert payload["version"] == "0.2.0"
+    assert payload["version"] == "0.3.0"
     assert payload["has_structured_protocol"] is True
     assert payload["run_count"] >= 2
 

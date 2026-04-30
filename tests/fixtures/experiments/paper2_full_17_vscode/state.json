@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "run_id": "paper2_full_17_vscode",
+  "status": "running",
+  "current_index": 0,
+  "records": [
+    {"name": "GRPO", "status": "running", "attempts": 1, "device": "cpu"},
+    {"name": "PPO", "status": "pending"},
+    {"name": "SAC", "status": "pending"},
+    {"name": "DDQN", "status": "pending"},
+    {"name": "DDPG", "status": "pending"},
+    {"name": "TD3", "status": "pending"},
+    {"name": "A3C", "status": "pending"},
+    {"name": "TRPO", "status": "pending"},
+    {"name": "SimPO", "status": "pending"},
+    {"name": "MAPPO", "status": "pending"},
+    {"name": "QMIX", "status": "pending"},
+    {"name": "COMA", "status": "pending"},
+    {"name": "IPPO", "status": "pending"},
+    {"name": "VDN", "status": "pending"},
+    {"name": "MADDPG", "status": "pending"},
+    {"name": "IQL", "status": "pending"},
+    {"name": "MATD3", "status": "pending"}
+  ],
+  "completed_algorithms": [],
+  "stop_requested": false,
+  "last_error": null,
+  "updated_at": "2026-04-28T00:00:00Z"
+}

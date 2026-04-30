@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "run_id": "paper2_full_17_vscode",
+  "name": "Paper2 Full 17 Algorithms VSCode Benchmark",
+  "created_at": "2026-04-28T00:00:00Z",
+  "updated_at": "2026-04-28T00:00:00Z",
+  "algorithms": [
+    {"name": "GRPO"},
+    {"name": "PPO"},
+    {"name": "SAC"},
+    {"name": "DDQN"},
+    {"name": "DDPG"},
+    {"name": "TD3"},
+    {"name": "A3C"},
+    {"name": "TRPO"},
+    {"name": "SimPO"},
+    {"name": "MAPPO"},
+    {"name": "QMIX"},
+    {"name": "COMA"},
+    {"name": "IPPO"},
+    {"name": "VDN"},
+    {"name": "MADDPG"},
+    {"name": "IQL"},
+    {"name": "MATD3"}
+  ],
+  "project_root": "C:/Users/22003/paper2/paper2",
+  "output_dir": "experiments/paper2_full_17_vscode",
+  "experiment_dir": "experiments/paper2_full_17_vscode",
+  "metadata": {"fixture": true}
+}

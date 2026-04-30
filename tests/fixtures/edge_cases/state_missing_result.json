@@ -1,0 +1,8 @@
+{
+  "run_id": "edge_missing_result",
+  "status": "completed",
+  "records": [
+    {"name": "GRPO", "status": "completed"}
+  ],
+  "completed_algorithms": ["GRPO"]
+}

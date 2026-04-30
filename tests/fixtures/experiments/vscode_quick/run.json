@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "run_id": "vscode_quick",
+  "name": "VSCode Quick Benchmark",
+  "algorithms": [
+    {"name": "GRPO"},
+    {"name": "PPO"},
+    {"name": "SAC"}
+  ],
+  "project_root": "C:/Users/22003/paper2/paper2",
+  "output_dir": "experiments/vscode_quick",
+  "experiment_dir": "experiments/vscode_quick",
+  "metadata": {"fixture": true, "smoke_test": true}
+}

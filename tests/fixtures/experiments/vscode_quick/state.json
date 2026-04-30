@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "run_id": "vscode_quick",
+  "status": "failed",
+  "current_index": 0,
+  "records": [
+    {"name": "GRPO", "status": "failed", "attempts": 1, "device": "cpu", "error": "Traceback: fixture failure"},
+    {"name": "PPO", "status": "pending"},
+    {"name": "SAC", "status": "pending"}
+  ],
+  "completed_algorithms": [],
+  "stop_requested": false,
+  "last_error": "GRPO failed",
+  "updated_at": "2026-04-28T00:00:00Z"
+}

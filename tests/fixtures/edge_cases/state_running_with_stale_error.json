@@ -1,0 +1,14 @@
+{
+  "run_id": "edge_running",
+  "status": "running",
+  "records": [
+    {
+      "name": "GRPO",
+      "status": "running",
+      "attempts": 2,
+      "exit_code": 1,
+      "finished_at": "2026-04-27T00:00:00Z",
+      "error": "previous failed attempt"
+    }
+  ]
+}

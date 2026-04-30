@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RL-MEC Training Dashboard</title>
+    <link rel="icon" href="data:,">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -20,16 +21,24 @@
         .btn.secondary { background: #27364f; }
         .btn.danger { background: #b93838; }
         .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .language-toggle { display: inline-flex; overflow: hidden; border: 1px solid #34527c; border-radius: 6px; }
+        .language-toggle button { min-height: 34px; border: 0; border-right: 1px solid #34527c; color: #bfcae1; background: #172033; padding: 6px 10px; cursor: pointer; }
+        .language-toggle button:last-child { border-right: 0; }
+        .language-toggle button.active { color: #fff; background: #3f6ee8; }
         .muted { color: #9aa8c2; font-size: 0.85rem; }
         .connection-status { display: none; padding: 8px 12px; color: #ffc4c4; background: #361d25; border: 1px solid #94404a; border-radius: 6px; margin-bottom: 14px; }
         .panel { background: #151f31; border: 1px solid #263753; border-radius: 8px; padding: 16px; }
         .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .run-overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-        .run-tile { background: #111a2a; border: 1px solid #273854; border-radius: 8px; padding: 12px; cursor: pointer; }
+        .run-tile { background: #111a2a; border: 1px solid #273854; border-radius: 8px; padding: 12px; cursor: pointer; overflow: hidden; }
+        .run-tile.fixed { border-color: #405c88; }
         .run-tile.active { border-color: #5f83ff; }
         .run-tile-header { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
         .run-id { font-weight: 700; word-break: break-word; }
+        .run-note { color: #bfcae1; font-size: 0.78rem; line-height: 1.4; margin: 6px 0 8px; }
         .run-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 0.82rem; color: #bfcae1; }
+        .run-grid span { min-width: 0; overflow-wrap: anywhere; }
+        .run-error { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .status-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
         .metric { background: #151f31; border: 1px solid #263753; border-radius: 8px; padding: 14px; min-height: 86px; }
         .metric h3 { font-size: 0.78rem; color: #9aa8c2; margin-bottom: 8px; }
@@ -46,19 +55,27 @@
         th { color: #9aa8c2; background: #19243a; }
         .badge { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
         .badge-running { background: #214d8c; }
-        .badge-finished { background: #1d6f50; }
-        .badge-stalled, .badge-failed { background: #8c2d2d; }
+        .badge-finished, .badge-completed { background: #1d6f50; }
+        .badge-stalled, .badge-failed, .badge-interrupted { background: #8c2d2d; }
         .badge-degraded, .badge-warn { background: #8a5a10; }
-        .badge-idle, .badge-historical { background: #48566f; }
+        .badge-idle, .badge-historical, .badge-initialized, .badge-pending, .badge-placeholder, .badge-skipped, .badge-stopped { background: #48566f; }
+        .current-row { outline: 1px solid #5f83ff; background: #182845; }
+        .mini-btn { min-height: 28px; border: 1px solid #34527c; border-radius: 5px; color: #eef3ff; background: #20304b; padding: 4px 8px; cursor: pointer; margin-right: 4px; }
+        .mini-btn.active { background: #3f6ee8; border-color: #6f8eff; }
+        .status-marker { color: #ffd166; font-size: 0.78rem; margin-left: 6px; }
         .compare-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
         .compare-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr); gap: 18px; }
         .log-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
         .log-window { height: 280px; overflow-y: auto; background: #0b111d; border: 1px solid #263753; border-radius: 8px; padding: 10px; font: 0.78rem/1.5 Consolas, "Courier New", monospace; }
+        .artifact-log-window { min-height: 320px; white-space: pre-wrap; word-break: break-word; }
+        .log-tabs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
         .log-line { padding: 2px 0; word-break: break-word; cursor: pointer; }
         .log-error { color: #ff8787; }
         .log-warn { color: #ffd166; }
         .log-info { color: #7fb2ff; }
-        .error-summary { color: #ffc4c4; background: #241722; border: 1px solid #4a2c37; border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem; }
+        .error-summary { border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem; }
+        .error-summary.has-error { color: #ffc4c4; background: #241722; border: 1px solid #4a2c37; }
+        .error-summary.empty-summary { color: #9aa8c2; background: #111a2a; border: 1px solid #273854; }
         .empty { color: #9aa8c2; text-align: center; padding: 24px; }
         @media (max-width: 1100px) { .status-bar { grid-template-columns: repeat(2, 1fr); } .charts-grid, .compare-grid { grid-template-columns: 1fr; } }
         @media (max-width: 700px) { body { padding: 12px; } .status-bar { grid-template-columns: 1fr; } .topbar select { min-width: 100%; } }
@@ -66,139 +83,419 @@
 </head>
 <body>
     <div class="container">
-        <h1>RL-MEC Training Dashboard</h1>
+        <h1 data-i18n="app.title">RL-MEC Training Dashboard</h1>
 
         <div class="topbar">
             <select id="run-select" onchange="selectRun(this.value)"></select>
-            <span class="muted" id="run-info">No run selected</span>
-            <button class="btn secondary" onclick="initSSE()">Reconnect SSE</button>
-            <button class="btn danger" onclick="stopDashboardServer()">Stop Dashboard Server</button>
+            <span class="muted" id="run-info" data-i18n="top.noRunSelected">No run selected</span>
+            <div class="language-toggle" data-i18n-aria-label="language.ariaLabel" aria-label="Language">
+                <button type="button" data-lang="zh" onclick="setLanguage('zh')">中文</button>
+                <button type="button" data-lang="en" onclick="setLanguage('en')">EN</button>
+            </div>
+            <button class="btn secondary" onclick="initSSE()" data-i18n="action.reconnectSse">Reconnect SSE</button>
+            <button class="btn danger" onclick="stopDashboardServer()" data-i18n="action.stopDashboard">Stop Dashboard Server</button>
         </div>
 
-        <div id="connection-status" class="connection-status">Disconnected. Reconnecting...</div>
+        <div id="connection-status" class="connection-status" data-i18n="connection.disconnected">Disconnected. Reconnecting...</div>
 
         <section class="panel">
-            <h2>Run Overview</h2>
+            <h2 data-i18n="panel.runOverview">Run Overview</h2>
             <div class="filters">
                 <select id="status-filter">
-                    <option value="all">All statuses</option>
-                    <option value="running">Running</option>
-                    <option value="finished">Finished</option>
-                    <option value="stalled">Stalled</option>
-                    <option value="degraded">Degraded</option>
-                    <option value="failed">Failed</option>
-                    <option value="idle">Idle</option>
+                    <option value="all" data-i18n="filter.allStatuses">All statuses</option>
+                    <option value="initialized" data-i18n="status.initialized">Initialized</option>
+                    <option value="running" data-i18n="status.running">Running</option>
+                    <option value="stop_requested" data-i18n="status.stop_requested">Stop Requested</option>
+                    <option value="stopped" data-i18n="status.stopped">Stopped</option>
+                    <option value="completed" data-i18n="status.completed">Completed</option>
+                    <option value="finished" data-i18n="status.finished">Finished</option>
+                    <option value="stalled" data-i18n="status.stalled">Stalled</option>
+                    <option value="degraded" data-i18n="status.degraded">Degraded</option>
+                    <option value="failed" data-i18n="status.failed">Failed</option>
+                    <option value="idle" data-i18n="status.idle">Idle</option>
                 </select>
-                <input id="run-keyword-filter" type="search" placeholder="Filter runs">
-                <button id="export-csv-btn" class="btn secondary" onclick="exportResults('csv')">Export CSV</button>
-                <button id="export-md-btn" class="btn secondary" onclick="exportResults('md')">Export Markdown</button>
+                <input id="run-keyword-filter" type="search" placeholder="Filter runs" data-i18n-placeholder="filter.searchRuns">
+                <button id="export-csv-btn" class="btn secondary" onclick="exportResults('csv')" data-i18n="action.exportCsv">Export CSV</button>
+                <button id="export-md-btn" class="btn secondary" onclick="exportResults('md')" data-i18n="action.exportMarkdown">Export Markdown</button>
             </div>
             <div id="run-overview" class="run-overview"></div>
         </section>
 
         <section class="status-bar" id="metric-cards">
-            <div class="metric"><h3>Status</h3><div class="value" id="status">-</div><div class="sub" id="status-sub">Waiting for data</div></div>
-            <div class="metric"><h3>Current Algorithm</h3><div class="value" id="current-algo">-</div><div class="sub" id="algo-sub">-</div></div>
-            <div class="metric"><h3>Algorithm Progress</h3><div class="value" id="progress-pct">0%</div><div class="sub" id="progress-sub">- / - steps</div></div>
-            <div class="metric"><h3>Overall Progress</h3><div class="value" id="overall-progress">0/17</div><div class="sub" id="overall-pct">0% complete</div></div>
-            <div class="metric"><h3>ETA</h3><div class="value" id="eta">-</div><div class="sub" id="elapsed">Elapsed: -</div></div>
+            <div class="metric"><h3 data-i18n="metric.status">Status</h3><div class="value" id="status">-</div><div class="sub" id="status-sub" data-i18n="state.waitingForData">Waiting for data</div></div>
+            <div class="metric"><h3 data-i18n="metric.currentAlgorithm">Current Algorithm</h3><div class="value" id="current-algo">-</div><div class="sub" id="algo-sub">-</div></div>
+            <div class="metric"><h3 data-i18n="metric.algorithmProgress">Algorithm Progress</h3><div class="value" id="progress-pct">0%</div><div class="sub" id="progress-sub" data-i18n="progress.noSteps">- / - steps</div></div>
+            <div class="metric"><h3 data-i18n="metric.overallProgress">Overall Progress</h3><div class="value" id="overall-progress">0/17</div><div class="sub" id="overall-pct">0% complete</div></div>
+            <div class="metric"><h3 data-i18n="metric.eta">ETA</h3><div class="value" id="eta">-</div><div class="sub" id="elapsed">Elapsed: -</div></div>
         </section>
 
         <section class="panel">
-            <h2>Progress</h2>
+            <h2 data-i18n="progress.title">Progress</h2>
             <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar" style="width:0%">0%</div></div>
             <div class="muted" style="display:flex;justify-content:space-between;margin:8px 0 12px;">
                 <span id="it-per-sec">- it/s</span>
-                <span id="update-count">Updates: -</span>
+                <span id="update-count" data-i18n="progress.updatesEmpty">Updates: -</span>
                 <span id="elapsed-stat">-</span>
             </div>
             <div class="progress-bar-wrap"><div class="progress-bar-fill overall" id="overall-bar" style="width:0%">0%</div></div>
         </section>
 
+        <section class="panel">
+            <h2 data-i18n="table.algorithmStatus">Algorithm Status</h2>
+            <div class="table-wrap">
+                <table id="algorithm-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th data-i18n="table.algorithm">Algorithm</th>
+                            <th data-i18n="table.status">Status</th>
+                            <th data-i18n="table.attempts">Attempts</th>
+                            <th data-i18n="table.device">Device</th>
+                            <th data-i18n="table.started">Started</th>
+                            <th data-i18n="table.finished">Finished</th>
+                            <th data-i18n="table.result">Result</th>
+                            <th data-i18n="table.logs">Logs</th>
+                            <th data-i18n="table.error">Error</th>
+                        </tr>
+                    </thead>
+                    <tbody id="algorithm-body"><tr><td colspan="10" class="empty" data-i18n="table.noAlgorithmRecords">No algorithm records yet</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2 data-i18n="artifact.title">Artifact Logs</h2>
+            <div class="log-tabs">
+                <span class="muted" id="artifact-log-title" data-i18n="artifact.select">Select an algorithm log</span>
+                <button class="mini-btn" id="stdout-tab" onclick="switchArtifactLogStream('stdout')">stdout</button>
+                <button class="mini-btn" id="stderr-tab" onclick="switchArtifactLogStream('stderr')">stderr</button>
+            </div>
+            <pre id="artifact-log-window" class="log-window artifact-log-window" data-i18n="artifact.none">No artifact log selected.</pre>
+        </section>
+
         <section class="charts-grid">
             <div class="panel">
-                <h2>Reward Comparison</h2>
+                <h2><span data-i18n="chart.rewardComparison">Reward Comparison</span> <button class="mini-btn" onclick="refreshBenchmarkCharts()" data-i18n="action.refreshBenchmark">Refresh Benchmark</button></h2>
+                <div id="benchmark-empty" class="muted" style="margin-bottom:8px;"></div>
                 <div class="chart-container"><canvas id="rewardChart"></canvas></div>
             </div>
             <div class="panel">
-                <h2>Training Time</h2>
+                <h2 data-i18n="chart.trainingTime">Training Time</h2>
                 <div class="chart-container"><canvas id="timeChart"></canvas></div>
             </div>
         </section>
 
         <section class="panel">
-            <h2>Algorithm Results</h2>
+            <h2 data-i18n="results.title">Algorithm Results</h2>
             <div class="table-wrap">
                 <table id="results-table">
                     <thead>
                         <tr>
-                            <th>Algorithm</th>
-                            <th>Environment</th>
-                            <th>Reward</th>
-                            <th>Latency</th>
-                            <th>Energy</th>
+                            <th data-i18n="table.algorithm">Algorithm</th>
+                            <th data-i18n="results.environment">Environment</th>
+                            <th data-i18n="results.reward">Reward</th>
+                            <th data-i18n="results.latency">Latency</th>
+                            <th data-i18n="results.energy">Energy</th>
                             <th>deadline_miss_rate</th>
                             <th>throughput</th>
                             <th>comm_score</th>
-                            <th>Train Time</th>
-                            <th>Status</th>
-                            <th>Source</th>
+                            <th data-i18n="chart.trainTime">Train Time</th>
+                            <th data-i18n="table.status">Status</th>
+                            <th data-i18n="results.source">Source</th>
                         </tr>
                     </thead>
-                    <tbody id="results-body"><tr><td colspan="11" class="empty">No results yet</td></tr></tbody>
+                    <tbody id="results-body"><tr><td colspan="11" class="empty" data-i18n="results.noResults">No results yet</td></tr></tbody>
                 </table>
             </div>
         </section>
 
         <section id="compare-panel" class="panel">
-            <h2>Compare Runs</h2>
+            <h2 data-i18n="compare.title">Compare Runs</h2>
             <div class="compare-controls">
                 <select id="compare-metric">
-                    <option value="reward">Reward</option>
-                    <option value="latency">Latency</option>
-                    <option value="energy">Energy</option>
-                    <option value="deadline_miss_rate">Deadline Miss Rate</option>
+                    <option value="reward" data-i18n="results.reward">Reward</option>
+                    <option value="latency" data-i18n="results.latency">Latency</option>
+                    <option value="energy" data-i18n="results.energy">Energy</option>
+                    <option value="deadline_miss_rate" data-i18n="compare.deadlineMissRate">Deadline Miss Rate</option>
                     <option value="throughput">Throughput</option>
                     <option value="comm_score">Comm Score</option>
-                    <option value="train_time">Train Time</option>
-                    <option value="update_count">Update Count</option>
+                    <option value="train_time" data-i18n="chart.trainTime">Train Time</option>
+                    <option value="update_count" data-i18n="compare.updateCount">Update Count</option>
                 </select>
-                <span class="muted" id="compare-hint">Select at least two runs to compare.</span>
+                <span class="muted" id="compare-hint" data-i18n="compare.selectAtLeastTwo">Select at least two runs to compare.</span>
             </div>
             <div class="compare-grid">
                 <div class="chart-container"><canvas id="compareChart"></canvas></div>
-                <div class="table-wrap"><table><thead><tr><th>Algorithm</th><th>Run</th><th>Value</th></tr></thead><tbody id="compare-table-body"><tr><td colspan="3" class="empty">Select at least two runs to compare.</td></tr></tbody></table></div>
+                <div class="table-wrap"><table><thead><tr><th data-i18n="table.algorithm">Algorithm</th><th data-i18n="compare.run">Run</th><th data-i18n="compare.value">Value</th></tr></thead><tbody id="compare-table-body"><tr><td colspan="3" class="empty" data-i18n="compare.selectAtLeastTwo">Select at least two runs to compare.</td></tr></tbody></table></div>
             </div>
         </section>
 
         <section class="panel">
-            <h2>Live Logs</h2>
+            <h2 data-i18n="logs.title">Live Logs</h2>
             <div class="log-controls">
                 <select id="log-level-filter">
-                    <option value="all">All levels</option>
-                    <option value="error">Error</option>
-                    <option value="warn">Warn</option>
-                    <option value="info">Info</option>
+                    <option value="all" data-i18n="filter.allLevels">All levels</option>
+                    <option value="error" data-i18n="level.error">Error</option>
+                    <option value="warn" data-i18n="level.warn">Warn</option>
+                    <option value="info" data-i18n="level.info">Info</option>
                 </select>
-                <input id="log-keyword-filter" type="search" placeholder="Filter logs">
-                <label class="muted"><input id="log-autoscroll-toggle" type="checkbox" checked> Auto-scroll</label>
+                <input id="log-keyword-filter" type="search" placeholder="Filter logs" data-i18n-placeholder="filter.searchLogs">
+                <label class="muted"><input id="log-autoscroll-toggle" type="checkbox" checked> <span data-i18n="log.autoScroll">Auto-scroll</span></label>
             </div>
-            <div id="error-summary" class="error-summary">No recent errors</div>
-            <div id="log-window" class="log-window"><div class="log-line">Waiting for logs...</div></div>
+            <div id="error-summary" class="error-summary empty-summary" data-i18n="log.noRecentErrors">No recent errors</div>
+            <div id="log-window" class="log-window"><div class="log-line" data-i18n="log.waiting">Waiting for logs...</div></div>
         </section>
     </div>
 
     <script>
+        const I18N_STORAGE_KEY = 'rl-mec-dashboard-language';
+        const I18N = {
+            en: {
+                'app.title': 'RL-MEC Training Dashboard',
+                'language.ariaLabel': 'Language',
+                'top.noRunSelected': 'No run selected',
+                'top.runInfo': '{name} · {source} source',
+                'action.reconnectSse': 'Reconnect SSE',
+                'action.stopDashboard': 'Stop Dashboard Server',
+                'action.exportCsv': 'Export CSV',
+                'action.exportMarkdown': 'Export Markdown',
+                'action.refreshBenchmark': 'Refresh Benchmark',
+                'connection.disconnected': 'Disconnected. Reconnecting...',
+                'panel.runOverview': 'Run Overview',
+                'filter.allStatuses': 'All statuses',
+                'filter.searchRuns': 'Filter runs',
+                'filter.allLevels': 'All levels',
+                'filter.searchLogs': 'Filter logs',
+                'status.idle': 'Idle',
+                'status.initialized': 'Initialized',
+                'status.running': 'Running',
+                'status.stop_requested': 'Stop Requested',
+                'status.stopped': 'Stopped',
+                'status.completed': 'Completed',
+                'status.finished': 'Finished',
+                'status.stalled': 'Stalled',
+                'status.degraded': 'Degraded',
+                'status.failed': 'Failed',
+                'status.interrupted': 'Interrupted',
+                'status.pending': 'Pending',
+                'status.skipped': 'Skipped',
+                'status.warn': 'Warn',
+                'status.historical': 'Historical',
+                'status.placeholder': 'Placeholder',
+                'metric.status': 'Status',
+                'metric.currentAlgorithm': 'Current Algorithm',
+                'metric.algorithmProgress': 'Algorithm Progress',
+                'metric.overallProgress': 'Overall Progress',
+                'metric.eta': 'ETA',
+                'state.waitingForData': 'Waiting for data',
+                'progress.title': 'Progress',
+                'progress.noSteps': '- / - steps',
+                'progress.updated': 'Updated {time}',
+                'progress.completed': '{count} completed',
+                'progress.algorithmCount': '{count} / {total} algorithms',
+                'progress.stepCount': '{current} / {total} steps',
+                'progress.percentComplete': '{percent}% complete',
+                'progress.elapsed': 'Elapsed: {time}',
+                'progress.iterationsPerSecond': '{value} it/s',
+                'progress.updates': 'Updates: {count}',
+                'progress.updatesEmpty': 'Updates: -',
+                'progress.processMarkerPresent': 'process marker present',
+                'progress.possiblyStale': 'possibly stale / manual check needed',
+                'table.algorithmStatus': 'Algorithm Status',
+                'table.noAlgorithmRecords': 'No algorithm records yet',
+                'table.algorithm': 'Algorithm',
+                'table.status': 'Status',
+                'table.attempts': 'Attempts',
+                'table.device': 'Device',
+                'table.started': 'Started',
+                'table.finished': 'Finished',
+                'table.result': 'Result',
+                'table.logs': 'Logs',
+                'table.error': 'Error',
+                'artifact.title': 'Artifact Logs',
+                'artifact.select': 'Select an algorithm log',
+                'artifact.none': 'No artifact log selected.',
+                'artifact.noAlgorithmSelected': 'No algorithm log selected',
+                'artifact.loading': 'Loading...',
+                'artifact.notFound': 'Log file not found: {path}',
+                'chart.rewardComparison': 'Reward Comparison',
+                'chart.trainingTime': 'Training Time',
+                'chart.reward': 'Reward',
+                'chart.trainTime': 'Train Time',
+                'chart.noCompletedResults': 'No completed algorithm results yet',
+                'chart.loadingBenchmark': 'Loading benchmark export...',
+                'results.title': 'Algorithm Results',
+                'results.noResults': 'No results yet',
+                'results.environment': 'Environment',
+                'results.reward': 'Reward',
+                'results.latency': 'Latency',
+                'results.energy': 'Energy',
+                'results.source': 'Source',
+                'results.missingFile': 'Result file missing',
+                'compare.title': 'Compare Runs',
+                'compare.selectAtLeastTwo': 'Select at least two runs to compare.',
+                'compare.runsSelected': '{count} runs selected.',
+                'compare.deadlineMissRate': 'Deadline Miss Rate',
+                'compare.updateCount': 'Update Count',
+                'compare.run': 'Run',
+                'compare.value': 'Value',
+                'compare.noComparableValues': 'No comparable values.',
+                'logs.title': 'Live Logs',
+                'log.autoScroll': 'Auto-scroll',
+                'log.noRecentErrors': 'No recent errors',
+                'log.waiting': 'Waiting for logs...',
+                'log.noMatches': 'No logs match the current filters.',
+                'level.error': 'Error',
+                'level.warn': 'Warn',
+                'level.info': 'Info',
+                'run.quickNote': 'Quick smoke test, only for entry connectivity and failure diagnosis, not formal paper results',
+                'run.compare': 'Compare',
+                'run.status': 'Status',
+                'run.algorithm': 'Algorithm',
+                'run.progress': 'Progress',
+                'run.overall': 'Overall',
+                'run.source': 'Source',
+                'run.updated': 'Updated',
+                'run.error': 'Error',
+                'run.noMatches': 'No runs match the current filters.',
+                'value.notAvailable': 'N/A',
+                'stop.confirm': 'Stop Dashboard Server?\n\nThis only stops the dashboard server. It does not stop paper2 training jobs.',
+                'stop.title': 'Dashboard Server Stopped',
+                'stop.message': 'This did not stop paper2 training jobs.'
+            },
+            zh: {
+                'app.title': 'RL-MEC 训练看板',
+                'language.ariaLabel': '语言',
+                'top.noRunSelected': '未选择运行',
+                'top.runInfo': '{name} · {source} 数据源',
+                'action.reconnectSse': '重连 SSE',
+                'action.stopDashboard': '停止看板服务',
+                'action.exportCsv': '导出 CSV',
+                'action.exportMarkdown': '导出 Markdown',
+                'action.refreshBenchmark': '刷新 Benchmark',
+                'connection.disconnected': '连接已断开，正在重连...',
+                'panel.runOverview': '运行概览',
+                'filter.allStatuses': '全部状态',
+                'filter.searchRuns': '筛选运行',
+                'filter.allLevels': '全部级别',
+                'filter.searchLogs': '筛选日志',
+                'status.idle': '空闲',
+                'status.initialized': '已初始化',
+                'status.running': '运行中',
+                'status.stop_requested': '请求停止',
+                'status.stopped': '已停止',
+                'status.completed': '已完成',
+                'status.finished': '已结束',
+                'status.stalled': '停滞',
+                'status.degraded': '降级',
+                'status.failed': '失败',
+                'status.interrupted': '已中断',
+                'status.pending': '等待中',
+                'status.skipped': '已跳过',
+                'status.warn': '警告',
+                'status.historical': '历史结果',
+                'status.placeholder': '占位',
+                'metric.status': '状态',
+                'metric.currentAlgorithm': '当前算法',
+                'metric.algorithmProgress': '算法进度',
+                'metric.overallProgress': '总体进度',
+                'metric.eta': '预计剩余',
+                'state.waitingForData': '等待数据',
+                'progress.title': '进度',
+                'progress.noSteps': '- / - 步',
+                'progress.updated': '更新时间 {time}',
+                'progress.completed': '已完成 {count} 个',
+                'progress.algorithmCount': '{count} / {total} 个算法',
+                'progress.stepCount': '{current} / {total} 步',
+                'progress.percentComplete': '完成 {percent}%',
+                'progress.elapsed': '已用时：{time}',
+                'progress.iterationsPerSecond': '{value} it/s',
+                'progress.updates': '更新次数：{count}',
+                'progress.updatesEmpty': '更新次数：-',
+                'progress.processMarkerPresent': 'process marker 存在',
+                'progress.possiblyStale': '可能卡住 / 需人工确认',
+                'table.algorithmStatus': '算法状态',
+                'table.noAlgorithmRecords': '暂无算法记录',
+                'table.algorithm': '算法',
+                'table.status': '状态',
+                'table.attempts': '尝试次数',
+                'table.device': '设备',
+                'table.started': '开始时间',
+                'table.finished': '结束时间',
+                'table.result': '结果',
+                'table.logs': '日志',
+                'table.error': '错误',
+                'artifact.title': 'Artifact 日志',
+                'artifact.select': '选择算法日志',
+                'artifact.none': '未选择 artifact 日志。',
+                'artifact.noAlgorithmSelected': '未选择算法日志',
+                'artifact.loading': '加载中...',
+                'artifact.notFound': '未找到日志文件：{path}',
+                'chart.rewardComparison': 'Reward 对比',
+                'chart.trainingTime': '训练时间',
+                'chart.reward': 'Reward',
+                'chart.trainTime': '训练时间',
+                'chart.noCompletedResults': '暂无已完成算法结果',
+                'chart.loadingBenchmark': '正在加载 benchmark 导出...',
+                'results.title': '算法结果',
+                'results.noResults': '暂无结果',
+                'results.environment': '环境',
+                'results.reward': 'Reward',
+                'results.latency': 'Latency',
+                'results.energy': 'Energy',
+                'results.source': '来源',
+                'results.missingFile': '结果文件缺失',
+                'compare.title': '运行对比',
+                'compare.selectAtLeastTwo': '至少选择两个运行进行对比。',
+                'compare.runsSelected': '已选择 {count} 个运行。',
+                'compare.deadlineMissRate': 'Deadline Miss Rate',
+                'compare.updateCount': '更新次数',
+                'compare.run': '运行',
+                'compare.value': '数值',
+                'compare.noComparableValues': '暂无可对比数值。',
+                'logs.title': '实时日志',
+                'log.autoScroll': '自动滚动',
+                'log.noRecentErrors': '暂无近期错误',
+                'log.waiting': '等待日志...',
+                'log.noMatches': '没有日志匹配当前筛选条件。',
+                'level.error': '错误',
+                'level.warn': '警告',
+                'level.info': '信息',
+                'run.quickNote': 'Quick smoke test，仅用于入口连通性和失败定位，不作为正式论文结果',
+                'run.compare': '对比',
+                'run.status': '状态',
+                'run.algorithm': '算法',
+                'run.progress': '进度',
+                'run.overall': '总体',
+                'run.source': '来源',
+                'run.updated': '更新',
+                'run.error': '错误',
+                'run.noMatches': '没有运行匹配当前筛选条件。',
+                'value.notAvailable': 'N/A',
+                'stop.confirm': '停止 Dashboard 服务？\n\n这只会停止看板服务，不会停止 paper2 训练任务。',
+                'stop.title': 'Dashboard 服务已停止',
+                'stop.message': 'paper2 训练任务没有被停止。'
+            }
+        };
+
         const dashboardState = {
             runs: [],
             currentRunId: null,
             currentRunState: null,
             selectedRunIds: [],
             selectedMetric: 'reward',
+            language: resolveInitialLanguage(),
+            comparePayload: null,
+            selectedLog: { runId: null, algorithm: null, stream: 'stdout' },
             filters: { status: 'all', keyword: '', logLevel: 'all', logKeyword: '', autoScroll: true },
             charts: { rewardChart: null, timeChart: null, compareChart: null },
             sse: { eventSource: null, reconnectTimer: null, connected: false }
         };
+
+        const DEFAULT_RUN_ID = 'paper2_full_17_vscode';
+        const QUICK_RUN_ID = 'vscode_quick';
+        const EXPERIMENT_STATUSES = ['initialized','running','stop_requested','stopped','completed','failed'];
+        const ALGORITHM_STATUSES = ['pending','running','completed','interrupted','failed','skipped'];
 
         const ALGO_COLORS = {
             GRPO: '#e74c3c', PPO: '#3498db', SAC: '#27ae60', DDQN: '#e67e22',
@@ -207,6 +504,63 @@
             IPPO: '#636e72', VDN: '#55efc4', MADDPG: '#fdcb6e', IQL: '#00cec9',
             MATD3: '#6c5ce7', Greedy: '#d63031', Random: '#fdcb6e'
         };
+
+        function resolveInitialLanguage() {
+            try {
+                const saved = localStorage.getItem(I18N_STORAGE_KEY);
+                if (I18N[saved]) return saved;
+            } catch (error) {}
+            return (navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+        }
+
+        function t(key, values) {
+            const dict = I18N[dashboardState.language] || I18N.en;
+            const text = dict[key] || I18N.en[key] || key;
+            return text.replace(/\{(\w+)\}/g, function(match, name) {
+                return values && values[name] !== undefined ? String(values[name]) : '';
+            });
+        }
+
+        function setLanguage(language) {
+            if (!I18N[language]) return;
+            const changed = language !== dashboardState.language;
+            dashboardState.language = language;
+            try { localStorage.setItem(I18N_STORAGE_KEY, language); } catch (error) {}
+            if (!changed) return;
+            applyTranslations();
+        }
+
+        function applyTranslations() {
+            document.documentElement.lang = dashboardState.language === 'zh' ? 'zh-CN' : 'en';
+            document.title = t('app.title');
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                element.textContent = t(element.dataset.i18n);
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+                element.setAttribute('placeholder', t(element.dataset.i18nPlaceholder));
+            });
+            document.querySelectorAll('[data-i18n-aria-label]').forEach(element => {
+                element.setAttribute('aria-label', t(element.dataset.i18nAriaLabel));
+            });
+            document.querySelectorAll('[data-lang]').forEach(element => {
+                element.classList.toggle('active', element.dataset.lang === dashboardState.language);
+                element.setAttribute('aria-pressed', String(element.dataset.lang === dashboardState.language));
+            });
+            if (dashboardState.currentRunState) {
+                renderRunDetail(dashboardState.currentRunState);
+            } else {
+                document.getElementById('overall-pct').textContent = t('progress.percentComplete', { percent: 0 });
+                document.getElementById('elapsed').textContent = t('progress.elapsed', { time: '-' });
+                document.getElementById('it-per-sec').textContent = t('progress.iterationsPerSecond', { value: '-' });
+            }
+            renderRunOverview(dashboardState.runs);
+            renderRunSelect();
+            renderCompareState();
+        }
+
+        function statusLabel(status) {
+            return t('status.' + (status || 'idle'));
+        }
 
         function chartOptions() {
             return {
@@ -223,12 +577,12 @@
         function initCharts() {
             dashboardState.charts.rewardChart = new Chart(document.getElementById('rewardChart'), {
                 type: 'bar',
-                data: { labels: [], datasets: [{ label: 'Reward', data: [], backgroundColor: [] }] },
+                data: { labels: [], datasets: [{ label: t('chart.reward'), data: [], backgroundColor: [] }] },
                 options: chartOptions()
             });
             dashboardState.charts.timeChart = new Chart(document.getElementById('timeChart'), {
                 type: 'bar',
-                data: { labels: [], datasets: [{ label: 'Train Time', data: [], backgroundColor: [] }] },
+                data: { labels: [], datasets: [{ label: t('chart.trainTime'), data: [], backgroundColor: [] }] },
                 options: chartOptions()
             });
             dashboardState.charts.compareChart = new Chart(document.getElementById('compareChart'), {
@@ -248,8 +602,9 @@
             const data = await apiGetJson('/api/runs');
             dashboardState.runs = data.runs || [];
             if (!dashboardState.currentRunId && dashboardState.runs.length) {
-                dashboardState.currentRunId = dashboardState.runs[0].run_id;
-                dashboardState.selectedRunIds = dashboardState.runs.slice(0, 2).map(run => run.run_id);
+                const defaultRun = dashboardState.runs.find(run => run.run_id === DEFAULT_RUN_ID) || dashboardState.runs[0];
+                dashboardState.currentRunId = defaultRun.run_id;
+                dashboardState.selectedRunIds = [];
             }
             renderRunSelect();
             renderRunOverview(dashboardState.runs);
@@ -268,14 +623,16 @@
             const ids = dashboardState.selectedRunIds;
             const hint = document.getElementById('compare-hint');
             if (ids.length < 2) {
-                hint.textContent = 'Select at least two runs to compare.';
+                dashboardState.comparePayload = null;
+                hint.textContent = t('compare.selectAtLeastTwo');
                 renderCompareChart(null);
                 renderCompareTable(null);
                 return;
             }
-            hint.textContent = ids.length + ' runs selected.';
+            hint.textContent = t('compare.runsSelected', { count: ids.length });
             const url = '/api/compare?run_ids=' + encodeURIComponent(ids.join(',')) + '&metric=' + encodeURIComponent(dashboardState.selectedMetric);
             const payload = await apiGetJson(url);
+            dashboardState.comparePayload = payload;
             renderCompareChart(payload);
             renderCompareTable(payload);
         }
@@ -299,30 +656,45 @@
 
         function renderRunOverview(runs) {
             const root = document.getElementById('run-overview');
-            const filtered = applyRunFilters(runs);
+            const filtered = applyRunFilters(orderRunsForOverview(runs));
             if (!filtered.length) {
-                root.innerHTML = '<div class="empty">No runs match the current filters.</div>';
+                root.innerHTML = '<div class="empty">' + escapeHtml(t('run.noMatches')) + '</div>';
                 return;
             }
             root.innerHTML = filtered.map(run => {
                 const checked = dashboardState.selectedRunIds.includes(run.run_id) ? 'checked' : '';
                 const active = run.run_id === dashboardState.currentRunId ? ' active' : '';
-                return '<div class="run-tile' + active + '" onclick="selectRun(\'' + escapeAttr(run.run_id) + '\')">' +
-                    '<div class="run-tile-header"><div class="run-id">' + escapeHtml(run.run_id) + '</div><label onclick="event.stopPropagation()" class="muted"><input type="checkbox" ' + checked + ' onchange="toggleCompareRun(\'' + escapeAttr(run.run_id) + '\', this.checked)"> Compare</label></div>' +
+                const fixed = (run.run_id === DEFAULT_RUN_ID || run.run_id === QUICK_RUN_ID) ? ' fixed' : '';
+                const note = run.run_id === QUICK_RUN_ID ? '<div class="run-note">' + escapeHtml(t('run.quickNote')) + '</div>' : '';
+                return '<div class="run-tile' + fixed + active + '" onclick="selectRun(\'' + escapeAttr(run.run_id) + '\')">' +
+                    '<div class="run-tile-header"><div><div class="run-id">' + escapeHtml(run.display_name || run.run_id) + '</div><div class="muted">' + escapeHtml(run.run_id) + '</div></div><label onclick="event.stopPropagation()" class="muted"><input type="checkbox" ' + checked + ' onchange="toggleCompareRun(\'' + escapeAttr(run.run_id) + '\', this.checked)"> ' + escapeHtml(t('run.compare')) + '</label></div>' +
+                    note +
                     '<div class="run-grid">' +
-                    '<span>Status</span><span>' + getStatusBadge(run.status) + '</span>' +
-                    '<span>Algorithm</span><span>' + escapeHtml(run.current_algorithm || '-') + '</span>' +
-                    '<span>Progress</span><span>' + fmtVal(run.progress_pct, 1) + '%</span>' +
-                    '<span>Overall</span><span>' + fmtVal(run.overall_progress, 2) + ' / ' + (run.total_algorithms || '-') + '</span>' +
-                    '<span>Source</span><span>' + escapeHtml(run.source_type || '-') + '</span>' +
-                    '<span>Updated</span><span>' + formatTimestamp(run.updated_at) + '</span>' +
-                    (run.last_error ? '<span>Error</span><span>' + escapeHtml(run.last_error) + '</span>' : '') +
+                    '<span>' + escapeHtml(t('run.status')) + '</span><span>' + getStatusBadge(run.status) + '</span>' +
+                    '<span>' + escapeHtml(t('run.algorithm')) + '</span><span>' + escapeHtml(run.current_algorithm || '-') + '</span>' +
+                    '<span>' + escapeHtml(t('run.progress')) + '</span><span>' + fmtVal(run.progress_pct, 1) + '%</span>' +
+                    '<span>' + escapeHtml(t('run.overall')) + '</span><span>' + fmtVal(run.overall_progress, 2) + ' / ' + (run.total_algorithms || '-') + '</span>' +
+                    '<span>' + escapeHtml(t('run.source')) + '</span><span>' + escapeHtml(run.source_type || '-') + '</span>' +
+                    '<span>' + escapeHtml(t('run.updated')) + '</span><span>' + formatTimestamp(run.updated_at) + '</span>' +
+                    (run.last_error ? '<span>' + escapeHtml(t('run.error')) + '</span><span class="run-error" title="' + escapeAttr(run.last_error) + '">' + escapeHtml(run.last_error) + '</span>' : '') +
                     '</div></div>';
             }).join('');
         }
 
+        function orderRunsForOverview(runs) {
+            const fixedIds = [DEFAULT_RUN_ID, QUICK_RUN_ID];
+            const byId = new Map(runs.map(run => [run.run_id, run]));
+            const fixed = fixedIds.filter(id => byId.has(id)).map(id => byId.get(id));
+            const rest = runs
+                .filter(run => !fixedIds.includes(run.run_id))
+                .slice()
+                .sort((a, b) => (b.updated_at || 0) - (a.updated_at || 0));
+            return fixed.concat(rest);
+        }
+
         async function selectRun(runId) {
             dashboardState.currentRunId = runId;
+            dashboardState.selectedLog = { runId: null, algorithm: null, stream: 'stdout' };
             document.getElementById('run-select').value = runId;
             closeSSE();
             await fetchInitialRunState(runId);
@@ -338,54 +710,151 @@
 
         function renderRunSelect() {
             const select = document.getElementById('run-select');
-            select.innerHTML = dashboardState.runs.map(run => '<option value="' + escapeAttr(run.run_id) + '">' + escapeHtml(run.run_id) + '</option>').join('');
+            select.innerHTML = orderRunsForOverview(dashboardState.runs).map(run => '<option value="' + escapeAttr(run.run_id) + '">' + escapeHtml(run.display_name || run.run_id) + '</option>').join('');
             if (dashboardState.currentRunId) select.value = dashboardState.currentRunId;
         }
 
         function renderRunDetail(state) {
             renderMetricCards(state);
+            renderAlgorithmTable(state);
+            renderLogPanel(state);
             renderResultsTable(state.results || []);
             renderLogs(state.recent_logs || []);
             renderErrorSummary(state.recent_logs || []);
             updateCharts(state);
-            document.getElementById('run-info').textContent = (state.source_type || 'unknown') + ' source';
+            document.getElementById('run-info').textContent = t('top.runInfo', {
+                name: state.display_name || state.run_id || '-',
+                source: state.source_type || 'unknown'
+            });
         }
 
         function renderMetricCards(state) {
-            document.getElementById('status').textContent = (state.status || 'idle').toUpperCase();
-            document.getElementById('status-sub').textContent = 'Updated ' + formatTimestamp(state.updated_at);
+            const records = state.records || [];
+            const completedCount = (state.completed_algorithms || []).length;
+            const totalAlgorithms = records.length || state.total_algorithms || 0;
+            const overallPct = totalAlgorithms ? Math.round((completedCount / totalAlgorithms) * 100) : 0;
+            const statusMarkers = [];
+            if (state.process_marker_exists && state.status === 'running') statusMarkers.push(t('progress.processMarkerPresent'));
+            if (state.possibly_stale) statusMarkers.push(t('progress.possiblyStale'));
+            document.getElementById('status').textContent = statusLabel(state.status);
+            document.getElementById('status-sub').innerHTML = escapeHtml(t('progress.updated', { time: formatTimestamp(state.updated_at) })) + (statusMarkers.length ? ' <span class="status-marker">' + escapeHtml(statusMarkers.join(' · ')) + '</span>' : '');
             document.getElementById('current-algo').textContent = state.current_algorithm || '-';
-            document.getElementById('algo-sub').textContent = (state.completed_algorithms || []).length + ' completed';
+            document.getElementById('algo-sub').textContent = t('progress.completed', { count: completedCount });
             document.getElementById('progress-pct').textContent = fmtVal(state.progress_pct, 1) + '%';
-            document.getElementById('progress-sub').textContent = formatNumber(state.current_step) + ' / ' + formatNumber(state.total_step) + ' steps';
-            document.getElementById('overall-progress').textContent = Math.floor(state.overall_progress || 0) + '/' + (state.total_algorithms || 17);
-            const overallPct = Math.min(100, Math.round(((state.overall_progress || 0) / (state.total_algorithms || 17)) * 100));
-            document.getElementById('overall-pct').textContent = overallPct + '% complete';
+            document.getElementById('progress-sub').textContent = totalAlgorithms
+                ? t('progress.algorithmCount', { count: completedCount, total: totalAlgorithms })
+                : t('progress.stepCount', { current: formatNumber(state.current_step), total: formatNumber(state.total_step) });
+            document.getElementById('overall-progress').textContent = completedCount + '/' + (totalAlgorithms || '-');
+            document.getElementById('overall-pct').textContent = t('progress.percentComplete', { percent: overallPct });
             document.getElementById('eta').textContent = formatTime(state.eta_seconds);
-            document.getElementById('elapsed').textContent = 'Elapsed: ' + formatTime(state.elapsed_seconds);
-            document.getElementById('it-per-sec').textContent = fmtVal(state.it_per_sec, 2) + ' it/s';
-            document.getElementById('update-count').textContent = 'Updates: ' + formatNumber(state.update_count);
+            document.getElementById('elapsed').textContent = t('progress.elapsed', { time: formatTime(state.elapsed_seconds) });
+            document.getElementById('it-per-sec').textContent = t('progress.iterationsPerSecond', { value: fmtVal(state.it_per_sec, 2) });
+            document.getElementById('update-count').textContent = t('progress.updates', { count: formatNumber(state.update_count) });
             document.getElementById('elapsed-stat').textContent = formatTime(state.elapsed_seconds);
             setBar('progress-bar', state.progress_pct || 0);
             setBar('overall-bar', overallPct);
         }
 
+        function renderAlgorithmTable(runState) {
+            const body = document.getElementById('algorithm-body');
+            const records = runState.records || [];
+            if (!records.length) {
+                body.innerHTML = '<tr><td colspan="10" class="empty">' + escapeHtml(t('table.noAlgorithmRecords')) + '</td></tr>';
+                return;
+            }
+            const currentIndex = getCurrentRecordIndex(runState);
+            body.innerHTML = records.map((record, index) => {
+                const isCurrent = index === currentIndex;
+                const status = record.status || 'pending';
+                const showError = ['failed', 'interrupted'].includes(status) ? (record.error || runState.last_error || '') : '';
+                const resultText = record.result_missing ? t('results.missingFile') : (record.result_path ? 'result.json' : '-');
+                return '<tr class="' + (isCurrent ? 'current-row' : '') + '">' +
+                    '<td>' + (index + 1) + '</td>' +
+                    '<td>' + escapeHtml(record.name || '-') + '</td>' +
+                    '<td>' + getStatusBadge(status) + '</td>' +
+                    '<td>' + escapeHtml(record.attempts || 0) + '</td>' +
+                    '<td>' + escapeHtml(record.device || '-') + '</td>' +
+                    '<td>' + escapeHtml(record.started_at || '-') + '</td>' +
+                    '<td>' + escapeHtml(status === 'running' ? '-' : (record.finished_at || '-')) + '</td>' +
+                    '<td>' + escapeHtml(resultText) + '</td>' +
+                    '<td><button class="mini-btn" onclick="loadAlgorithmLog(\'' + escapeAttr(runState.run_id) + '\', \'' + escapeAttr(record.name || '') + '\', \'stdout\')">stdout</button><button class="mini-btn" onclick="loadAlgorithmLog(\'' + escapeAttr(runState.run_id) + '\', \'' + escapeAttr(record.name || '') + '\', \'stderr\')">stderr</button></td>' +
+                    '<td>' + escapeHtml(showError || '-') + '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        function getCurrentRecordIndex(runState) {
+            const records = runState.records || [];
+            if (runState.current_index >= 0 && runState.current_index < records.length) return runState.current_index;
+            const nextIndex = records.findIndex(record => record.status !== 'completed');
+            return nextIndex >= 0 ? nextIndex : -1;
+        }
+
+        function defaultLogSelection(runState) {
+            const records = runState.records || [];
+            if (!records.length) return { runId: runState.run_id, algorithm: null, stream: 'stdout' };
+            const failed = records.find(record => record.status === 'failed' || record.status === 'interrupted');
+            if (failed) return { runId: runState.run_id, algorithm: failed.name, stream: 'stderr' };
+            const currentIndex = getCurrentRecordIndex(runState);
+            const current = currentIndex >= 0 ? records[currentIndex] : records[0];
+            return { runId: runState.run_id, algorithm: current.name, stream: 'stdout' };
+        }
+
+        function renderLogPanel(runState) {
+            const title = document.getElementById('artifact-log-title');
+            const stdoutTab = document.getElementById('stdout-tab');
+            const stderrTab = document.getElementById('stderr-tab');
+            const selected = dashboardState.selectedLog.runId === runState.run_id ? dashboardState.selectedLog : defaultLogSelection(runState);
+            dashboardState.selectedLog = selected;
+            stdoutTab.classList.toggle('active', selected.stream === 'stdout');
+            stderrTab.classList.toggle('active', selected.stream === 'stderr');
+            if (!selected.algorithm) {
+                title.textContent = t('artifact.noAlgorithmSelected');
+                document.getElementById('artifact-log-window').textContent = t('artifact.none');
+                return;
+            }
+            title.textContent = runState.run_id + ' / ' + selected.algorithm + ' / ' + selected.stream;
+            const key = runState.run_id + ':' + selected.algorithm + ':' + selected.stream;
+            if (selected.runId === runState.run_id && selected.algorithm && document.getElementById('artifact-log-window').dataset.loadedKey !== key) {
+                loadAlgorithmLog(runState.run_id, selected.algorithm, selected.stream).catch(console.error);
+            }
+        }
+
+        async function loadAlgorithmLog(runId, algorithm, stream) {
+            dashboardState.selectedLog = { runId, algorithm, stream };
+            const title = document.getElementById('artifact-log-title');
+            const win = document.getElementById('artifact-log-window');
+            document.getElementById('stdout-tab').classList.toggle('active', stream === 'stdout');
+            document.getElementById('stderr-tab').classList.toggle('active', stream === 'stderr');
+            title.textContent = runId + ' / ' + algorithm + ' / ' + stream;
+            win.dataset.loadedKey = runId + ':' + algorithm + ':' + stream;
+            win.textContent = t('artifact.loading');
+            const payload = await apiGetJson('/api/runs/' + encodeURIComponent(runId) + '/logs/' + encodeURIComponent(algorithm) + '/' + encodeURIComponent(stream));
+            win.textContent = payload.exists ? String(payload.text || '').replace(/\r/g, '\n') : t('artifact.notFound', { path: payload.path || '' });
+        }
+
+        function switchArtifactLogStream(stream) {
+            const selected = dashboardState.selectedLog;
+            if (!selected.runId || !selected.algorithm) return;
+            loadAlgorithmLog(selected.runId, selected.algorithm, stream).catch(console.error);
+        }
+
         function renderResultsTable(results) {
             const body = document.getElementById('results-body');
             if (!results.length) {
-                body.innerHTML = '<tr><td colspan="11" class="empty">No results yet</td></tr>';
+                body.innerHTML = '<tr><td colspan="11" class="empty">' + escapeHtml(t('results.noResults')) + '</td></tr>';
                 return;
             }
             body.innerHTML = results.map(result => '<tr>' +
                 '<td>' + escapeHtml(result.algorithm || '-') + '</td>' +
                 '<td>' + escapeHtml(result.environment || '-') + '</td>' +
-                '<td>' + fmtVal(result.reward, 4) + (result.reward_std ? ' +/- ' + fmtVal(result.reward_std, 4) : '') + '</td>' +
-                '<td>' + fmtVal(result.latency, 4) + '</td>' +
-                '<td>' + fmtVal(result.energy, 4) + '</td>' +
-                '<td>' + fmtVal(result.deadline_miss_rate, 4) + '</td>' +
-                '<td>' + fmtVal(result.throughput, 4) + '</td>' +
-                '<td>' + fmtVal(result.comm_score, 4) + '</td>' +
-                '<td>' + fmtVal(result.train_time, 1) + '</td>' +
+                '<td>' + metricVal(result.reward, 4) + (result.reward_std ? ' +/- ' + metricVal(result.reward_std, 4) : '') + '</td>' +
+                '<td>' + metricVal(result.latency, 4) + '</td>' +
+                '<td>' + metricVal(result.energy, 4) + '</td>' +
+                '<td>' + metricVal(result.deadline_miss_rate, 4) + '</td>' +
+                '<td>' + metricVal(result.throughput, 4) + '</td>' +
+                '<td>' + metricVal(result.comm_score, 4) + '</td>' +
+                '<td>' + metricVal(result.train_time, 1) + '</td>' +
                 '<td>' + getStatusBadge(result.status || 'finished') + '</td>' +
                 '<td>' + escapeHtml(result.source || '-') + '</td>' +
                 '</tr>').join('');
@@ -393,8 +862,46 @@
 
         function updateCharts(state) {
             const results = (state && state.results) || [];
-            updateBarChart(dashboardState.charts.rewardChart, results, 'reward', 'Reward');
-            updateBarChart(dashboardState.charts.timeChart, results, 'train_time', 'Train Time');
+            document.getElementById('benchmark-empty').textContent = results.length ? '' : t('chart.noCompletedResults');
+            updateBarChart(dashboardState.charts.rewardChart, results, 'reward', t('chart.reward'));
+            updateBarChart(dashboardState.charts.timeChart, results, 'train_time', t('chart.trainTime'));
+        }
+
+        async function refreshBenchmarkCharts() {
+            const runId = dashboardState.currentRunId;
+            if (!runId) return;
+            const status = document.getElementById('benchmark-empty');
+            status.textContent = t('chart.loadingBenchmark');
+            const payload = await apiGetJson('/api/runs/' + encodeURIComponent(runId) + '/benchmark');
+            if (payload.transient_error) {
+                status.textContent = payload.transient_error;
+                updateBarChart(dashboardState.charts.rewardChart, [], 'reward', t('chart.reward'));
+                updateBarChart(dashboardState.charts.timeChart, [], 'train_time', t('chart.trainTime'));
+                return;
+            }
+            const results = (payload.results || []).map(mapBenchmarkResult);
+            status.textContent = results.length ? '' : t('chart.noCompletedResults');
+            updateBarChart(dashboardState.charts.rewardChart, results, 'reward', t('chart.reward'));
+            updateBarChart(dashboardState.charts.timeChart, results, 'train_time', t('chart.trainTime'));
+        }
+
+        function mapBenchmarkResult(item) {
+            return {
+                algorithm: item.algorithm || '-',
+                reward: firstValue(item.reward, item.final_reward_mean, item.final_reward_mean_mean),
+                reward_std: firstValue(item.reward_std, item.final_reward_std, item.final_reward_mean_std),
+                latency: firstValue(item.latency, item.final_latency_mean, item.final_latency_mean_mean),
+                energy: firstValue(item.energy, item.final_energy_mean, item.final_energy_mean_mean),
+                comm_score: firstValue(item.comm_score, item.final_comm_score, item.final_comm_score_mean),
+                train_time: firstValue(item.train_time, item.train_time_seconds_mean)
+            };
+        }
+
+        function firstValue() {
+            for (const value of arguments) {
+                if (value !== null && value !== undefined && value !== '') return value;
+            }
+            return null;
         }
 
         function updateBarChart(chart, results, field, label) {
@@ -424,7 +931,7 @@
             const win = document.getElementById('log-window');
             const filtered = applyLogFilters(logs);
             if (!filtered.length) {
-                win.innerHTML = '<div class="log-line muted">No logs match the current filters.</div>';
+                win.innerHTML = '<div class="log-line muted">' + escapeHtml(t('log.noMatches')) + '</div>';
                 return;
             }
             win.innerHTML = filtered.map(log => {
@@ -440,7 +947,9 @@
 
         function renderErrorSummary(logs) {
             const errors = logs.filter(log => log.level === 'error');
-            document.getElementById('error-summary').textContent = errors.length ? errors[errors.length - 1].text : 'No recent errors';
+            const summary = document.getElementById('error-summary');
+            summary.textContent = errors.length ? errors[errors.length - 1].text : t('log.noRecentErrors');
+            summary.className = errors.length ? 'error-summary has-error' : 'error-summary empty-summary';
         }
 
         function renderCompareChart(payload) {
@@ -464,10 +973,25 @@
             chart.update('none');
         }
 
+        function renderCompareState() {
+            const hint = document.getElementById('compare-hint');
+            if (!hint) return;
+            if (dashboardState.selectedRunIds.length < 2) {
+                hint.textContent = t('compare.selectAtLeastTwo');
+                renderCompareChart(null);
+                renderCompareTable(null);
+                return;
+            }
+            hint.textContent = t('compare.runsSelected', { count: dashboardState.selectedRunIds.length });
+            renderCompareChart(dashboardState.comparePayload);
+            renderCompareTable(dashboardState.comparePayload);
+        }
+
         function renderCompareTable(payload) {
             const body = document.getElementById('compare-table-body');
             if (!payload) {
-                body.innerHTML = '<tr><td colspan="3" class="empty">Select at least two runs to compare.</td></tr>';
+                const emptyText = dashboardState.selectedRunIds.length < 2 ? t('compare.selectAtLeastTwo') : t('compare.noComparableValues');
+                body.innerHTML = '<tr><td colspan="3" class="empty">' + escapeHtml(emptyText) + '</td></tr>';
                 return;
             }
             const rows = [];
@@ -476,7 +1000,7 @@
                     rows.push('<tr><td>' + escapeHtml(series.algorithm) + '</td><td>' + escapeHtml(item.run_id) + '</td><td>' + fmtVal(item.value, 4) + '</td></tr>');
                 }
             }
-            body.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="3" class="empty">No comparable values.</td></tr>';
+            body.innerHTML = rows.length ? rows.join('') : '<tr><td colspan="3" class="empty">' + escapeHtml(t('compare.noComparableValues')) + '</td></tr>';
         }
 
         function initSSE() {
@@ -494,6 +1018,7 @@
                 const state = JSON.parse(event.data);
                 dashboardState.currentRunState = state;
                 renderRunDetail(state);
+                if (['completed', 'failed', 'stopped'].includes(state.status)) closeSSE();
             });
             es.onerror = function() {
                 dashboardState.sse.connected = false;
@@ -511,20 +1036,25 @@
         }
 
         async function stopDashboardServer() {
-            const message = 'Stop Dashboard Server?\n\nThis only stops the dashboard server. It does not stop paper2 training jobs.';
+            const message = t('stop.confirm');
             if (!confirm(message)) return;
             try { await fetch('/api/shutdown', { method: 'POST' }); } catch (error) {}
-            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;color:#eef3ff;font-family:Segoe UI,Arial,sans-serif;"><div><h1>Dashboard Server Stopped</h1><p>This did not stop paper2 training jobs.</p></div></div>';
+            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;color:#eef3ff;font-family:Segoe UI,Arial,sans-serif;"><div><h1>' + escapeHtml(t('stop.title')) + '</h1><p>' + escapeHtml(t('stop.message')) + '</p></div></div>';
         }
 
         function getStatusBadge(status) {
             const cls = 'badge-' + (status || 'idle');
-            return '<span class="badge ' + cls + '">' + escapeHtml(status || 'idle') + '</span>';
+            return '<span class="badge ' + cls + '">' + escapeHtml(statusLabel(status)) + '</span>';
         }
 
         function formatTime(seconds) {
             if (!seconds || seconds <= 0) return '-';
             seconds = Math.floor(seconds);
+            if (dashboardState.language === 'zh') {
+                if (seconds >= 3600) return Math.floor(seconds / 3600) + '小时 ' + Math.floor((seconds % 3600) / 60) + '分';
+                if (seconds >= 60) return Math.floor(seconds / 60) + '分 ' + (seconds % 60) + '秒';
+                return seconds + '秒';
+            }
             if (seconds >= 3600) return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
             if (seconds >= 60) return Math.floor(seconds / 60) + 'm ' + (seconds % 60) + 's';
             return seconds + 's';
@@ -541,9 +1071,16 @@
             return Number.isFinite(num) ? num.toFixed(decimals === undefined ? 2 : decimals) : '-';
         }
 
+        function metricVal(value, decimals) {
+            if (value === null || value === undefined || value === '') return t('value.notAvailable');
+            const num = Number(value);
+            return Number.isFinite(num) ? num.toFixed(decimals === undefined ? 2 : decimals) : t('value.notAvailable');
+        }
+
         function formatTimestamp(value) {
             if (!value) return '-';
-            return new Date(value * 1000).toLocaleTimeString();
+            const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value);
+            return Number.isNaN(date.getTime()) ? '-' : date.toLocaleTimeString();
         }
 
         function setBar(id, value) {
@@ -563,6 +1100,7 @@
 
         document.addEventListener('DOMContentLoaded', async function() {
             initCharts();
+            applyTranslations();
             document.getElementById('status-filter').addEventListener('change', event => {
                 dashboardState.filters.status = event.target.value;
                 renderRunOverview(dashboardState.runs);

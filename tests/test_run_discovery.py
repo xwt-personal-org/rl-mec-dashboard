@@ -13,7 +13,7 @@ from dashboard.run_discovery import (
 def test_discover_structured_runs():
     runs = discover_structured_runs("tests/fixtures/structured")
 
-    assert any(run.run_id == "run_001" and run.source_type == "structured" for run in runs)
+    assert any(run.run_id == "run_001" and run.source_type == "legacy_structured" for run in runs)
 
 
 def test_discover_legacy_runs():
@@ -48,13 +48,13 @@ def test_discover_runs_mixed_merge(tmp_path):
         sse_interval_sec=1.0,
     )
     runs = discover_runs(cfg)
+    test_run = next(run for run in runs if run.run_id == "test")
 
-    assert len(runs) == 1
-    assert runs[0].source_type == "mixed"
-    assert runs[0].run_dir == run_dir
-    assert runs[0].meta_file == run_dir / "run_meta.json"
-    assert runs[0].stdout_file == logs_dir / "benchmark_full_test.log"
-    assert runs[0].stderr_file == logs_dir / "benchmark_full_test.err.log"
+    assert test_run.source_type == "mixed"
+    assert test_run.run_dir == run_dir
+    assert test_run.meta_file == run_dir / "run_meta.json"
+    assert test_run.stdout_file == logs_dir / "benchmark_full_test.log"
+    assert test_run.stderr_file == logs_dir / "benchmark_full_test.err.log"
 
 
 def test_select_latest_run():

@@ -11,7 +11,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
 
-from dashboard.config import DashboardConfig
+from dashboard.config import DashboardConfig, benchmark_export_path
+from dashboard.experiment_reader import read_text_tail, safe_read_json_file
 from dashboard.exporter import results_to_csv, results_to_markdown
 from dashboard.models import run_state_to_dict, run_summary_to_dict
 from dashboard.sse import create_sse_response, run_snapshot_event_generator
@@ -58,9 +59,12 @@ def register_routes(app: FastAPI, store: DashboardStateStore) -> None:
         runs = store.get_runs()
         return {
             "status": "ok",
-            "version": "0.2.0",
-            "has_structured_protocol": any(run.source_type in ("structured", "mixed") for run in runs),
+            "version": "0.3.0",
+            "has_experiment_state": any(run.source_type == "experiment_state" for run in runs),
+            "has_structured_protocol": any(run.source_type in ("legacy_structured", "structured", "mixed") for run in runs),
             "run_count": len(runs),
+            "default_run_id": store.config.default_run_id,
+            "quick_run_id": store.config.quick_run_id,
         }
 
     @app.get("/api/runs")
@@ -80,6 +84,31 @@ def register_routes(app: FastAPI, store: DashboardStateStore) -> None:
             raise HTTPException(status_code=404, detail="Run not found")
         generator = run_snapshot_event_generator(run_id, request, store, store.config.sse_interval_sec)
         return create_sse_response(generator)
+
+    @app.get("/api/runs/{run_id}/logs/{algorithm}/stdout")
+    async def get_stdout_log(run_id: str, algorithm: str):
+        return _log_tail_payload(store, run_id, algorithm, "stdout")
+
+    @app.get("/api/runs/{run_id}/logs/{algorithm}/stderr")
+    async def get_stderr_log(run_id: str, algorithm: str):
+        return _log_tail_payload(store, run_id, algorithm, "stderr")
+
+    @app.get("/api/runs/{run_id}/benchmark")
+    async def get_benchmark_export(run_id: str):
+        path = benchmark_export_path(store.config, run_id)
+        payload, error = safe_read_json_file(path)
+        if payload is None and error is None:
+            return {"run_id": run_id, "exists": False, "results": []}
+        if error:
+            return {"run_id": run_id, "exists": True, "transient_error": error, "results": []}
+        if isinstance(payload, list):
+            return {"run_id": run_id, "exists": True, "results": payload}
+        return {
+            "run_id": run_id,
+            "exists": True,
+            "transient_error": f"invalid json file: {path}",
+            "results": [],
+        }
 
     @app.get("/api/compare")
     async def compare(run_ids: str = "", metric: str = "reward"):
@@ -124,3 +153,35 @@ def _selected_states(store: DashboardStateStore, run_ids: str):
         if state is not None:
             states.append(state)
     return states
+
+
+def _log_tail_payload(store: DashboardStateStore, run_id: str, algorithm: str, stream: str) -> dict:
+    state = store.get_run_state(run_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    record = _find_record(state.records, algorithm)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Algorithm not found")
+    path = _record_value(record, f"{stream}_path")
+    text, exists = read_text_tail(Path(path), store.config.log_tail_bytes) if path else ("", False)
+    return {
+        "run_id": run_id,
+        "algorithm": algorithm,
+        "stream": stream,
+        "path": path,
+        "exists": exists,
+        "text": text,
+    }
+
+
+def _find_record(records, algorithm: str):
+    for record in records:
+        if _record_value(record, "name") == algorithm:
+            return record
+    return None
+
+
+def _record_value(record, key: str):
+    if isinstance(record, dict):
+        return record.get(key, "")
+    return getattr(record, key, "")

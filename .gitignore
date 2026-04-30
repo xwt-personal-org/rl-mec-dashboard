@@ -8,11 +8,13 @@ __pycache__/
 
 # Playwright
 .playwright-mcp/
+.playwright-cli/
 
 # Temporary files
 _tmp_check_select.py
 _debug_*.py
 check_select.py
+output/
 
 # Environment
 .env

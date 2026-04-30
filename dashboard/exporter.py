@@ -19,6 +19,11 @@ CSV_COLUMNS = [
     "comm_score",
     "train_time",
     "update_count",
+    "seed",
+    "device",
+    "train_timesteps",
+    "checkpoint_dir",
+    "result_path",
     "status",
     "source",
 ]
@@ -33,6 +38,8 @@ MARKDOWN_COLUMNS = [
     "Throughput",
     "Comm Score",
     "Train Time",
+    "Device",
+    "Timesteps",
     "Status",
 ]
 
@@ -50,6 +57,11 @@ def normalize_result_row(run_id: str, result: AlgorithmResult) -> dict[str, str]
         "comm_score": _stringify(result.comm_score),
         "train_time": _stringify(result.train_time),
         "update_count": _stringify(result.update_count),
+        "seed": _stringify(result.seed),
+        "device": _stringify(result.device),
+        "train_timesteps": _stringify(result.train_timesteps),
+        "checkpoint_dir": _stringify(result.checkpoint_dir),
+        "result_path": _stringify(result.result_path),
         "status": _stringify(result.status),
         "source": _stringify(result.source),
     }
@@ -77,6 +89,8 @@ def results_to_markdown(states: list[RunState]) -> str:
             row["throughput"],
             row["comm_score"],
             row["train_time"],
+            row["device"],
+            row["train_timesteps"],
             row["status"],
         ]
         for state in states

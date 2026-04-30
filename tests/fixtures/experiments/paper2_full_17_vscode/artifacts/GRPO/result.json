@@ -1,0 +1,16 @@
+{
+  "algorithm": "GRPO",
+  "environment": "MEC-v1",
+  "seed": 42,
+  "device": "cpu",
+  "train_timesteps": 100000,
+  "checkpoint_dir": "experiments/paper2_full_17_vscode/artifacts/GRPO/checkpoints",
+  "final_eval": {
+    "eval/reward_mean": 1.23,
+    "eval/reward_std": 0.1,
+    "eval/latency_mean": 12.5,
+    "eval/energy_mean": 3.4,
+    "eval/comm_score": 0.9
+  },
+  "status": "success"
+}
