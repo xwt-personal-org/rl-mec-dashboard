@@ -290,6 +290,81 @@ def test_fixture_api_end_to_end():
     assert benchmark == {"run_id": "vscode_quick", "exists": True, "results": []}
 
 
+def test_list_backups_returns_patch10_backup_snapshots(tmp_path):
+    experiments_dir = tmp_path / "experiments"
+    results_dir = tmp_path / "results"
+    figures_dir = tmp_path / "figures"
+    _write_backup_fixture(
+        experiments_dir / "paper2_full_17_vscode_backup_20260501_150000",
+        status="completed",
+        completed=["GRPO"],
+    )
+    _write_backup_fixture(
+        experiments_dir / "paper2_full_17_vscode_auto_20260501_160000",
+        status="failed",
+        completed=[],
+    )
+    benchmark_archive = results_dir / "archive" / "20260501_150000"
+    benchmark_archive.mkdir(parents=True)
+    (benchmark_archive / "benchmark_paper2_full_17_vscode.json").write_text("[]", encoding="utf-8")
+    figure_archive = figures_dir / "archive" / "20260501_150000"
+    figure_archive.mkdir(parents=True)
+    (figure_archive / "reward.png").write_text("png", encoding="utf-8")
+
+    with _api_server(
+        DashboardConfig(
+            experiments_dir=experiments_dir,
+            results_dir=results_dir,
+            figures_dir=figures_dir,
+            logs_dir=tmp_path / "logs",
+            scan_interval_sec=60.0,
+        )
+    ) as base_url:
+        runs_payload = _get_json(base_url, "/api/runs")
+        payload = _get_json(base_url, "/api/backups")
+
+    run_ids = {run["run_id"] for run in runs_payload["runs"]}
+    assert "paper2_full_17_vscode_backup_20260501_150000" not in run_ids
+    assert "paper2_full_17_vscode_auto_20260501_160000" not in run_ids
+    backups = payload["backups"]
+    assert [backup["backup_type"] for backup in backups] == ["auto", "backup"]
+    archived = next(backup for backup in backups if backup["backup_type"] == "backup")
+    assert archived["source_run_id"] == "paper2_full_17_vscode"
+    assert archived["completed_algorithms"] == 1
+    assert archived["total_algorithms"] == 2
+    assert archived["benchmark_files"] == ["benchmark_paper2_full_17_vscode.json"]
+    assert archived["figure_files"] == ["reward.png"]
+
+
+def test_list_run_backups_filters_by_source_run_id(tmp_path):
+    experiments_dir = tmp_path / "experiments"
+    _write_backup_fixture(
+        experiments_dir / "paper2_full_17_vscode_backup_20260501_150000",
+        source_run_id="paper2_full_17_vscode",
+    )
+    _write_backup_fixture(
+        experiments_dir / "vscode_quick_backup_20260501_150000",
+        source_run_id="vscode_quick",
+    )
+
+    with _api_server(
+        DashboardConfig(
+            experiments_dir=experiments_dir,
+            results_dir=tmp_path / "results",
+            figures_dir=tmp_path / "figures",
+            logs_dir=tmp_path / "logs",
+            scan_interval_sec=60.0,
+        )
+    ) as base_url:
+        payload = _get_json(base_url, "/api/runs/paper2_full_17_vscode/backups")
+
+    assert payload["run_id"] == "paper2_full_17_vscode"
+    assert [backup["source_run_id"] for backup in payload["backups"]] == ["paper2_full_17_vscode"]
+    assert [backup["backup_id"] for backup in payload["backups"]] == [
+        "paper2_full_17_vscode_backup_20260501_150000"
+    ]
+
+
 @contextmanager
 def _api_server(config: DashboardConfig):
     port = _free_port()
@@ -330,3 +405,37 @@ def _free_port() -> int:
 def _get_json(base_url: str, path: str):
     with urllib.request.urlopen(base_url + path, timeout=5) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def _write_backup_fixture(
+    backup_dir: Path,
+    *,
+    source_run_id: str = "paper2_full_17_vscode",
+    status: str = "completed",
+    completed: list[str] | None = None,
+) -> None:
+    completed = completed if completed is not None else ["GRPO"]
+    backup_dir.mkdir(parents=True)
+    (backup_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "run_id": source_run_id,
+                "name": source_run_id,
+                "created_at": "2026-05-01T15:00:00",
+                "algorithms": [{"name": "GRPO"}, {"name": "PPO"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backup_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "run_id": source_run_id,
+                "status": status,
+                "records": [{"name": "GRPO"}, {"name": "PPO"}],
+                "completed_algorithms": completed,
+                "updated_at": "2026-05-01T15:01:00",
+            }
+        ),
+        encoding="utf-8",
+    )

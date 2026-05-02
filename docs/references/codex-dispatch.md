@@ -1,99 +1,262 @@
+## 类型：patch
+
 # Codex 任务派发
 
-进入连续执行模式。目标项目为 `rl-mec-dashboard`。从 **模块 0：基线检查与项目骨架准备 Step 1：执行当前基线验证** 开始继续，按 `docs/plan.md` 执行到全部模块完成。
+进入增量合并模式（patch）。本次只处理 Windows Start Menu 一键启动入口，不重跑既有完整计划。
+
+## 目标仓库
+
+- 仓库：`w2030298-art/rl-mec-dashboard`
+- 分支：`master`
+- 变更目标：让用户可以通过 Windows 开始菜单一键启动 RL-MEC Dashboard
+- 关键约束：dashboard 仍只读训练输出，不启动、不停止、不重启 paper2 训练任务
+- 本轮不做：浏览器扩展、Native Messaging Host、注册表配置、`.exe` 打包、后端重构
 
 ## 启动
 
-1. 读取 `docs/progress.md`，定位当前未完成的第一个步骤。
-2. 读取 `docs/plan.md`，加载完整开发计划。
-3. 读取 `docs/architecture.md`，确认模块边界、API、目录结构和结构化协议。
-4. 读取以下参考文件：
-   - `docs/references/ref-structured-experiment-protocol.md`
-   - `docs/references/ref-paper2-dashboard-writer.md`
-5. 确认当前仓库根目录存在：
-   - `serve_dashboard.py`
-   - `monitor_dashboard.html`
-   - `test_parsers.py`
+1. 读取 `docs/plan.md`，作为原计划基线。
+2. 读取 `docs/progress.md`，确认当前状态为全部模块完成。
+3. 读取 `docs/plan-patch.md`，本次必须严格按其中操作清单执行。
+4. 检查现有文件：
    - `README.md`
-   - `PLAN.md`
+   - `start_dashboard.bat`
+   - `start_dashboard.vbs`
+   - `serve_dashboard.py`
+5. 不读取或修改 paper2 训练输出目录。
+
+## 本次 patch 范围
+
+只处理 `docs/plan-patch.md` 中以下条目：
+
+1. `[MODIFY] 模块 9 — Step 1：更新 README`
+2. `[ADD] 模块 9 — Step 4：新增 Start Menu 快捷方式安装脚本`
+3. `[ADD] 模块 9 — Step 5：新增 Start Menu 快捷方式卸载脚本`
+4. `[ADD] 模块 9 — Step 6：新增 Windows Start Menu 启动说明文档`
+5. `[ADD] 模块 9 — Step 7：新增脚本静态回归测试`
 
 ## 执行规则
 
-- 从当前进度点开始，按 `docs/plan.md` 的模块顺序和步骤顺序逐步执行。
-- 每个步骤完成后立即运行该步骤中列出的验证命令。
-- 验证通过后直接进入下一个步骤，不要停下来请求确认。
-- 每完成一个完整模块后，批量更新 `docs/progress.md`。
-- 所有模块完成后，输出完成报告。
-- 保持只读 dashboard，不得增加训练启动、停止、重启、任务队列、任务调度。
-- `POST /api/shutdown` 只能关闭 dashboard server，不得控制 paper2 训练进程。
-- 保持原启动命令兼容：
-  ```bash
-  python serve_dashboard.py --logs-dir logs --benchmark-json results/benchmark.json --host 127.0.0.1 --port 8088
+### [MODIFY] 标签
+
+- 定位 `docs/plan.md` 中模块 9 Step 1。
+- 检查 `docs/progress.md`：该 Step 已完成时，按 patch 中“修改后”内容更新对应文件。
+- 本次修改目标文件：
+  - `README.md`
+- 完成后：
+  - 在 `docs/progress.md` 中将模块 9 Step 1 标注为 `[MODIFIED]`，并保留已完成状态。
+  - 不删除原有启动方式说明。
+
+### [ADD] 标签
+
+- 按 `docs/plan-patch.md` 中每个新增 Step 的定义创建文件。
+- 本次新增目标文件：
+  - `install_start_menu_shortcut.ps1`
+  - `uninstall_start_menu_shortcut.ps1`
+  - `docs/windows-start-menu-launcher.md`
+  - `tests/test_windows_start_menu_scripts.py`
+- 完成后：
+  - 在 `docs/progress.md` 的模块 9 下追加 Step 4、Step 5、Step 6、Step 7。
+  - 每个新增 Step 标注为 `[ADDED]`，验证通过后勾选完成。
+
+### 通用规则
+
+- 每完成一个 `[MODIFY]` 或 `[ADD]` 项，立即运行该项验证命令。
+- 验证通过后继续下一项，不要停下来询问。
+- 验证失败时自行诊断并修复，最多重试 2 次。
+- 重试 2 次仍失败时：
+  - 在 `docs/issues.md` 追加失败记录。
+  - 停下并报告失败原因、已修改文件、验证输出。
+- 不重跑 `docs/plan.md` 中未被 patch 涉及的步骤。
+- 不在 patch 范围外“顺手”重构其他模块。
+
+## 文件实现要求
+
+### 1. `install_start_menu_shortcut.ps1`
+
+必须满足：
+
+- 默认安装到当前用户开始菜单：
+  - `%APPDATA%\Microsoft\Windows\Start Menu\Programs\RL-MEC Dashboard\RL-MEC Dashboard.lnk`
+- 支持：
+  ```powershell
+  param([string]$ShortcutName = "RL-MEC Dashboard", [switch]$AllUsers)
   ```
-- 新增 `--runs-dir` 参数时必须保持该参数可选，不能破坏不传 `--runs-dir` 的 legacy 模式。
-- 第一轮不得引入数据库。
-- 第一轮不得迁移 React/Vite 或引入前端构建工具。
-- 所有路径使用 `pathlib.Path`。
-- 文件读取使用 `encoding="utf-8", errors="replace"`。
-- 不得引入 `docs/plan.md` 未指定的三方依赖。
+- 目标必须是：
+  - `wscript.exe`
+- 参数必须指向：
+  - 当前项目目录下的 `start_dashboard.vbs`
+- 工作目录必须是项目根目录。
+- 必须检查 `start_dashboard.vbs` 是否存在，不存在则 `throw`。
+- 必须使用 `New-Object -ComObject WScript.Shell` 和 `CreateShortcut()`。
+- 不得写死 `C:\Users\22003\...`。
+- 不得直接调用 `python.exe serve_dashboard.py`。
+- 不得复制项目文件到开始菜单目录。
+
+### 2. `uninstall_start_menu_shortcut.ps1`
+
+必须满足：
+
+- 默认删除当前用户开始菜单中的：
+  - `RL-MEC Dashboard\RL-MEC Dashboard.lnk`
+- 支持：
+  ```powershell
+  param([string]$ShortcutName = "RL-MEC Dashboard", [switch]$AllUsers)
+  ```
+- 如果快捷方式不存在，不报错。
+- 仅删除 `.lnk` 和空的 `RL-MEC Dashboard` 开始菜单目录。
+- 不得删除项目目录。
+- 不得删除 `start_dashboard.vbs`、`start_dashboard.bat` 或 paper2 输出目录。
+
+### 3. `docs/windows-start-menu-launcher.md`
+
+必须包含以下一级或二级标题：
+
+```markdown
+# Windows Start Menu Launcher
+
+## 目标
+## 安装
+## 启动
+## 卸载
+## 故障排查
+## 为什么本轮不做浏览器扩展
+```
+
+必须说明：
+
+- 该功能只简化 dashboard server 启动入口。
+- 不启动、不停止、不重启 paper2 训练任务。
+- 安装命令：
+  ```powershell
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\install_start_menu_shortcut.ps1
+  ```
+- 卸载命令：
+  ```powershell
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall_start_menu_shortcut.ps1
+  ```
+- 浏览器扩展暂缓原因：
+  - 普通扩展不能直接启动本地 `.bat` / `.vbs`
+  - 真正一键启动需要 Native Messaging Host 和系统注册表配置
+  - Start Menu 快捷方式复杂度更低
+
+### 4. `tests/test_windows_start_menu_scripts.py`
+
+必须是静态测试，不实际运行 PowerShell，不访问真实 `%APPDATA%`。
+
+至少包含：
+
+```python
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+def test_install_start_menu_script_targets_wscript_and_vbs():
+    text = (ROOT / "install_start_menu_shortcut.ps1").read_text(encoding="utf-8")
+    assert "New-Object -ComObject WScript.Shell" in text
+    assert "CreateShortcut" in text
+    assert "wscript.exe" in text
+    assert "start_dashboard.vbs" in text
+    assert "WorkingDirectory" in text
+    assert "Created Start Menu shortcut" in text
+
+def test_install_start_menu_script_has_no_hardcoded_user_path():
+    text = (ROOT / "install_start_menu_shortcut.ps1").read_text(encoding="utf-8")
+    assert "C:\\Users\\22003" not in text
+    assert "paper2\\paper2" not in text
+
+def test_uninstall_start_menu_script_only_removes_shortcut():
+    text = (ROOT / "uninstall_start_menu_shortcut.ps1").read_text(encoding="utf-8")
+    assert "Remove-Item $ShortcutPath -Force" in text
+    assert "start_dashboard.bat" not in text
+    assert "start_dashboard.vbs" not in text
+    assert "paper2" not in text
+```
+
+可在不削弱上述断言的基础上增加测试。
+
+## 验证命令
+
+按顺序运行：
+
+```bash
+python - <<'PY'
+from pathlib import Path
+text = Path("README.md").read_text(encoding="utf-8")
+assert "Windows 菜单栏一键启动" in text
+assert "install_start_menu_shortcut.ps1" in text
+assert "uninstall_start_menu_shortcut.ps1" in text
+assert "start_dashboard.vbs" in text
+assert "不启动、不停止、不重启 paper2 训练任务" in text or "不启动、不停止、不重启" in text
+PY
+```
+
+```bash
+python - <<'PY'
+from pathlib import Path
+text = Path("docs/windows-start-menu-launcher.md").read_text(encoding="utf-8")
+for phrase in [
+    "Windows Start Menu Launcher",
+    "install_start_menu_shortcut.ps1",
+    "uninstall_start_menu_shortcut.ps1",
+    "http://127.0.0.1:8088",
+    "Native Messaging Host",
+]:
+    assert phrase in text
+PY
+```
+
+```bash
+python -m pytest tests/test_windows_start_menu_scripts.py -v
+```
+
+在 Windows 本机可额外运行手工验证：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install_start_menu_shortcut.ps1
+$Shortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\RL-MEC Dashboard\RL-MEC Dashboard.lnk"
+if (!(Test-Path $Shortcut)) { throw "shortcut missing: $Shortcut" }
+```
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall_start_menu_shortcut.ps1
+$Shortcut = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\RL-MEC Dashboard\RL-MEC Dashboard.lnk"
+if (Test-Path $Shortcut) { throw "shortcut still exists: $Shortcut" }
+```
 
 ## 仅以下情况停下
 
-- 当前步骤验证失败，且自行诊断修复 2 次后仍失败。
-- 遇到 `docs/plan.md` 未覆盖的技术决策。
-- 需要用户提供外部资源，例如真实训练日志、API 密钥、未提交文件、设计稿。
-- 当前步骤的前置依赖未完成。
-- 发现执行计划与仓库实际结构出现不可自动修复的冲突。
-
-停下前必须：
-
-1. 将问题记录到 `docs/issues.md`。
-2. 在记录中写明：
-   - 所在模块
-   - 所在步骤
-   - 失败命令
-   - 错误输出摘要
-   - 已尝试的 2 次修复
-   - 需要用户决策的具体问题
-3. 输出阻塞报告。
-
-## 进度更新规则
-
-- 以模块为粒度批量更新 `docs/progress.md`。
-- 不要每完成一个小步骤就写一次进度文件。
-- 完成模块后，将该模块所有完成的 Step checkbox 改为 `[x]`。
-- 将“当前阶段”更新为下一个未完成模块的第一个未完成步骤。
-- 全部完成后，将“当前阶段”更新为 `全部完成`，状态更新为 `完成`。
+- 验证失败且重试 2 次仍无法解决。
+- `start_dashboard.vbs` 或 `start_dashboard.bat` 缺失，导致无法安全复用现有启动链路。
+- patch 执行中发现必须修改后端启动逻辑或 paper2 路径配置。
+- 需要浏览器扩展、Native Messaging Host 或注册表配置才能满足需求。
+- 需要用户提供管理员权限才能完成当前用户级 Start Menu 快捷方式安装。
 
 ## 禁止行为
 
-- 不要每完成一个小步骤就停下来请求确认。
-- 不要偏离 `docs/plan.md` 自行添加功能。
-- 不要引入 `docs/plan.md` 未指定的依赖。
-- 不要为了通过测试删除测试。
-- 不要把 dashboard 改成训练控制台。
-- 不要把 dashboard 与 paper2 训练函数直接耦合。
-- 不要迁移 React/Vite。
-- 不要引入 SQLite/PostgreSQL/Redis。
-- 不要破坏 legacy 日志模式。
-- 不要删除 `monitor_dashboard.html` 单页入口。
-- 不要删除 `serve_dashboard.py` CLI 入口。
+- 不要全量重跑 `docs/plan.md` 中已完成的模块。
+- 不要修改 dashboard API、前端页面逻辑或后端状态聚合逻辑。
+- 不要修改 `serve_dashboard.py`。
+- 不要修改 `start_dashboard.bat` 的 Python 路径或启动参数。
+- 不要修改 `start_dashboard.vbs`。
+- 不要引入第三方依赖。
+- 不要创建浏览器扩展目录。
+- 不要写注册表。
+- 不要打包 `.exe`。
+- 不要删除或清理 paper2 输出文件。
+- 不要把 dashboard 改成可控制训练任务的工具。
 
-## 完成后输出
+## 完成后
 
-完成后输出以下表格：
+输出完成报告，必须包含：
 
-| 模块 | 状态 | 主要改动 | 验证命令 | 结果 |
-|------|------|----------|----------|------|
-| 模块 0 | completed / blocked | ... | ... | ... |
-| 模块 1 | completed / blocked | ... | ... | ... |
-
-并输出：
-
-- 遇到的 issues 列表；没有则写“无”。
-- 被跳过的测试；没有则写“无”。
-- 需要用户后续处理的事项；没有则写“无”。
-- 最终启动命令。
-- 最终 API smoke test 命令。
+1. 已处理的 `[MODIFY]` / `[ADD]` 列表。
+2. 新增和修改的文件清单。
+3. 每条验证命令的结果。
+4. `docs/progress.md` 更新摘要。
+5. `docs/issues.md` 是否新增记录。
+6. 明确说明：
+   - Windows Start Menu 入口已可安装。
+   - 现有 `.vbs` / `.bat` 入口仍保留。
+   - dashboard 仍只读，不控制 paper2 训练任务。
 
 现在开始执行。

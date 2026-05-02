@@ -12,6 +12,7 @@ class DashboardConfig:
     logs_dir: Path = Path("logs")
     experiments_dir: Path | None = Path("experiments")
     results_dir: Path = Path("results")
+    figures_dir: Path | None = Path("figures")
     benchmark_json: Path = Path("results/benchmark.json")
     runs_dir: Path | None = None
     host: str = "127.0.0.1"
@@ -40,6 +41,7 @@ def parse_cli_args(argv: list[str] | None = None) -> DashboardConfig:
     parser.add_argument("--logs-dir", type=Path, default=defaults.logs_dir, help="Log directory path")
     parser.add_argument("--experiments-dir", type=Path, default=defaults.experiments_dir, help="paper2 experiments directory path")
     parser.add_argument("--results-dir", type=Path, default=defaults.results_dir, help="paper2 results directory path")
+    parser.add_argument("--figures-dir", type=Path, default=defaults.figures_dir, help="paper2 figures directory path")
     parser.add_argument("--benchmark-json", type=Path, default=defaults.benchmark_json, help="Benchmark JSON path")
     parser.add_argument("--runs-dir", type=Path, default=defaults.runs_dir, help="Legacy structured runs directory path (deprecated)")
     parser.add_argument("--host", type=str, default=defaults.host, help="Host to bind")
@@ -56,6 +58,7 @@ def parse_cli_args(argv: list[str] | None = None) -> DashboardConfig:
         logs_dir=args.logs_dir,
         experiments_dir=args.experiments_dir,
         results_dir=args.results_dir,
+        figures_dir=args.figures_dir,
         benchmark_json=args.benchmark_json,
         runs_dir=args.runs_dir,
         host=args.host,

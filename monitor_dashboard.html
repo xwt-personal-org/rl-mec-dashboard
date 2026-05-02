@@ -38,6 +38,10 @@
         .run-note { color: #bfcae1; font-size: 0.78rem; line-height: 1.4; margin: 6px 0 8px; }
         .run-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 0.82rem; color: #bfcae1; }
         .run-grid span { min-width: 0; overflow-wrap: anywhere; }
+        .backup-grid { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; }
+        .backup-item { background: #111a2a; border: 1px solid #273854; border-radius: 8px; padding: 10px; }
+        .backup-item .label { color: #9aa8c2; font-size: 0.74rem; margin-bottom: 5px; }
+        .backup-item .value { color: #eef3ff; font-size: 0.9rem; font-weight: 700; overflow-wrap: anywhere; }
         .run-error { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .status-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
         .metric { background: #151f31; border: 1px solid #263753; border-radius: 8px; padding: 14px; min-height: 86px; }
@@ -77,7 +81,7 @@
         .error-summary.has-error { color: #ffc4c4; background: #241722; border: 1px solid #4a2c37; }
         .error-summary.empty-summary { color: #9aa8c2; background: #111a2a; border: 1px solid #273854; }
         .empty { color: #9aa8c2; text-align: center; padding: 24px; }
-        @media (max-width: 1100px) { .status-bar { grid-template-columns: repeat(2, 1fr); } .charts-grid, .compare-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 1100px) { .status-bar { grid-template-columns: repeat(2, 1fr); } .charts-grid, .compare-grid, .backup-grid { grid-template-columns: 1fr; } }
         @media (max-width: 700px) { body { padding: 12px; } .status-bar { grid-template-columns: 1fr; } .topbar select { min-width: 100%; } }
     </style>
 </head>
@@ -138,6 +142,11 @@
                 <span id="elapsed-stat">-</span>
             </div>
             <div class="progress-bar-wrap"><div class="progress-bar-fill overall" id="overall-bar" style="width:0%">0%</div></div>
+        </section>
+
+        <section class="panel">
+            <h2 data-i18n="backup.title">Backups</h2>
+            <div id="backup-content" class="empty" data-i18n="backup.none">No backups found for this run.</div>
         </section>
 
         <section class="panel">
@@ -301,6 +310,16 @@
                 'progress.updatesEmpty': 'Updates: -',
                 'progress.processMarkerPresent': 'process marker present',
                 'progress.possiblyStale': 'possibly stale / manual check needed',
+                'backup.title': 'Backups',
+                'backup.latest': 'Latest backup',
+                'backup.none': 'No backups found for this run.',
+                'backup.type': 'Type',
+                'backup.timestamp': 'Timestamp',
+                'backup.status': 'Status',
+                'backup.completed': 'Completed',
+                'backup.files': 'Files',
+                'backup.auto': 'Auto',
+                'backup.manual': 'Manual',
                 'table.algorithmStatus': 'Algorithm Status',
                 'table.noAlgorithmRecords': 'No algorithm records yet',
                 'table.algorithm': 'Algorithm',
@@ -414,6 +433,16 @@
                 'progress.updatesEmpty': '更新次数：-',
                 'progress.processMarkerPresent': 'process marker 存在',
                 'progress.possiblyStale': '可能卡住 / 需人工确认',
+                'backup.title': '备份',
+                'backup.latest': '最新备份',
+                'backup.none': '当前 run 暂无备份。',
+                'backup.type': '类型',
+                'backup.timestamp': '时间戳',
+                'backup.status': '状态',
+                'backup.completed': '已完成',
+                'backup.files': '文件',
+                'backup.auto': '自动保护',
+                'backup.manual': '手动备份',
                 'table.algorithmStatus': '算法状态',
                 'table.noAlgorithmRecords': '暂无算法记录',
                 'table.algorithm': '算法',
@@ -480,6 +509,8 @@
 
         const dashboardState = {
             runs: [],
+            backups: [],
+            currentRunBackups: [],
             currentRunId: null,
             currentRunState: null,
             selectedRunIds: [],
@@ -601,6 +632,7 @@
         async function loadRuns() {
             const data = await apiGetJson('/api/runs');
             dashboardState.runs = data.runs || [];
+            await loadBackups();
             if (!dashboardState.currentRunId && dashboardState.runs.length) {
                 const defaultRun = dashboardState.runs.find(run => run.run_id === DEFAULT_RUN_ID) || dashboardState.runs[0];
                 dashboardState.currentRunId = defaultRun.run_id;
@@ -615,8 +647,25 @@
             if (!runId) return null;
             const state = await apiGetJson('/api/runs/' + encodeURIComponent(runId));
             dashboardState.currentRunState = state;
+            await loadRunBackups(runId);
             renderRunDetail(state);
             return state;
+        }
+
+        async function loadBackups() {
+            const payload = await apiGetJson('/api/backups');
+            dashboardState.backups = payload.backups || [];
+            return dashboardState.backups;
+        }
+
+        async function loadRunBackups(runId) {
+            if (!runId) {
+                dashboardState.currentRunBackups = [];
+                return [];
+            }
+            const payload = await apiGetJson(`/api/runs/${runId}/backups`);
+            dashboardState.currentRunBackups = payload.backups || [];
+            return dashboardState.currentRunBackups;
         }
 
         async function loadCompareData() {
@@ -666,6 +715,8 @@
                 const active = run.run_id === dashboardState.currentRunId ? ' active' : '';
                 const fixed = (run.run_id === DEFAULT_RUN_ID || run.run_id === QUICK_RUN_ID) ? ' fixed' : '';
                 const note = run.run_id === QUICK_RUN_ID ? '<div class="run-note">' + escapeHtml(t('run.quickNote')) + '</div>' : '';
+                const latestBackup = run.is_placeholder ? null : latestBackupForRun(run.run_id);
+                const backupRow = latestBackup ? '<span>' + escapeHtml(t('backup.latest')) + '</span><span>' + escapeHtml(formatBackupTimestamp(latestBackup.timestamp)) + '</span>' : '';
                 return '<div class="run-tile' + fixed + active + '" onclick="selectRun(\'' + escapeAttr(run.run_id) + '\')">' +
                     '<div class="run-tile-header"><div><div class="run-id">' + escapeHtml(run.display_name || run.run_id) + '</div><div class="muted">' + escapeHtml(run.run_id) + '</div></div><label onclick="event.stopPropagation()" class="muted"><input type="checkbox" ' + checked + ' onchange="toggleCompareRun(\'' + escapeAttr(run.run_id) + '\', this.checked)"> ' + escapeHtml(t('run.compare')) + '</label></div>' +
                     note +
@@ -676,6 +727,7 @@
                     '<span>' + escapeHtml(t('run.overall')) + '</span><span>' + fmtVal(run.overall_progress, 2) + ' / ' + (run.total_algorithms || '-') + '</span>' +
                     '<span>' + escapeHtml(t('run.source')) + '</span><span>' + escapeHtml(run.source_type || '-') + '</span>' +
                     '<span>' + escapeHtml(t('run.updated')) + '</span><span>' + formatTimestamp(run.updated_at) + '</span>' +
+                    backupRow +
                     (run.last_error ? '<span>' + escapeHtml(t('run.error')) + '</span><span class="run-error" title="' + escapeAttr(run.last_error) + '">' + escapeHtml(run.last_error) + '</span>' : '') +
                     '</div></div>';
             }).join('');
@@ -716,6 +768,7 @@
 
         function renderRunDetail(state) {
             renderMetricCards(state);
+            renderBackupPanel(state);
             renderAlgorithmTable(state);
             renderLogPanel(state);
             renderResultsTable(state.results || []);
@@ -753,6 +806,36 @@
             document.getElementById('elapsed-stat').textContent = formatTime(state.elapsed_seconds);
             setBar('progress-bar', state.progress_pct || 0);
             setBar('overall-bar', overallPct);
+        }
+
+        function renderBackupPanel(runState) {
+            const root = document.getElementById('backup-content');
+            const backup = latestBackupForRun(runState.run_id, true);
+            if (!backup) {
+                root.className = 'empty';
+                root.textContent = t('backup.none');
+                return;
+            }
+            const typeLabel = backup.backup_type === 'auto' ? t('backup.auto') : t('backup.manual');
+            root.className = 'backup-grid';
+            root.innerHTML =
+                backupItem(t('backup.type'), typeLabel) +
+                backupItem(t('backup.timestamp'), formatBackupTimestamp(backup.timestamp)) +
+                backupItem(t('backup.status'), statusLabel(backup.status || 'idle')) +
+                backupItem(t('backup.completed'), (backup.completed_algorithms || 0) + ' / ' + (backup.total_algorithms || 0)) +
+                backupItem(t('backup.files') + ' benchmark', (backup.benchmark_files || []).length) +
+                backupItem(t('backup.files') + ' figures', (backup.figure_files || []).length);
+        }
+
+        function backupItem(label, value) {
+            return '<div class="backup-item"><div class="label">' + escapeHtml(label) + '</div><div class="value">' + escapeHtml(value) + '</div></div>';
+        }
+
+        function latestBackupForRun(runId, preferCurrent) {
+            const backups = preferCurrent && dashboardState.currentRunId === runId
+                ? dashboardState.currentRunBackups
+                : dashboardState.backups.filter(backup => backup.source_run_id === runId);
+            return backups && backups.length ? backups[0] : null;
         }
 
         function renderAlgorithmTable(runState) {
@@ -1081,6 +1164,16 @@
             if (!value) return '-';
             const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value);
             return Number.isNaN(date.getTime()) ? '-' : date.toLocaleTimeString();
+        }
+
+        function formatBackupTimestamp(value) {
+            if (!value) return '-';
+            const text = String(value);
+            if (/^\d{8}_\d{6}$/.test(text)) {
+                return text.slice(0, 4) + '-' + text.slice(4, 6) + '-' + text.slice(6, 8) + ' ' +
+                    text.slice(9, 11) + ':' + text.slice(11, 13) + ':' + text.slice(13, 15);
+            }
+            return text;
         }
 
         function setBar(id, value) {

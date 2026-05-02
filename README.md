@@ -15,6 +15,30 @@
 
 ## 启动方式
 
+### Windows 菜单栏一键启动（推荐）
+
+首次安装快捷方式：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install_start_menu_shortcut.ps1
+```
+
+安装后从 Windows 开始菜单启动：
+
+```text
+Start / 开始菜单 → RL-MEC Dashboard → RL-MEC Dashboard
+```
+
+该入口会静默调用 `start_dashboard.vbs`，再由 `start_dashboard.bat --hidden` 启动 dashboard server 并打开浏览器。
+
+卸载开始菜单快捷方式：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall_start_menu_shortcut.ps1
+```
+
+说明：此入口只启动 dashboard server，不启动、不停止、不重启 paper2 训练任务。
+
 ### 命令行
 
 推荐 paper2 experiments 模式：
@@ -45,6 +69,8 @@ C:\Users\22003\paper2\paper2\.venv\Scripts\python.exe serve_dashboard.py \
 
 - `start_dashboard.vbs`：静默启动并打开浏览器。
 - `start_dashboard.bat`：可见控制台启动，便于查看 server 输出。
+
+`start_dashboard.vbs` / `start_dashboard.bat` 仍作为底层兼容入口保留；普通使用优先从 Windows 开始菜单启动。
 
 页面上的 `Stop Dashboard Server` 只关闭 dashboard server；它不停止训练、不清理训练进程、不修改 paper2 输出。
 

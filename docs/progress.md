@@ -1,9 +1,9 @@
 # 开发进度
 
 ## 当前状态
-- 当前阶段：全部模块完成
-- 最后更新：2026-04-28
-- 状态：已完成
+- 当前阶段：模块 10 完成，等待 review
+- 最后更新：2026-05-01
+- 状态：NEEDS_REVIEW
 
 ## 模块进度
 
@@ -68,9 +68,21 @@
 - [x] Step 5: 端到端 API 测试
 
 ### 模块 9：文档、启动脚本与最终验收
-- [x] Step 1: 更新 README
+- [x] Step 1: 更新 README `[MODIFIED] 2026-04-30`
 - [x] Step 2: 更新 Windows 启动脚本
 - [x] Step 3: 新增迁移说明文档
+- [x] Step 4: 新增 Start Menu 快捷方式安装脚本 `[ADDED] 2026-04-30`
+- [x] Step 5: 新增 Start Menu 快捷方式卸载脚本 `[ADDED] 2026-04-30`
+- [x] Step 6: 新增 Windows Start Menu 启动说明文档 `[ADDED] 2026-04-30`
+- [x] Step 7: 新增脚本静态回归测试 `[ADDED] 2026-04-30`
+
+### 模块 10：Patch 10 备份归档适配
+- [x] Step 1: 新增 `BackupSnapshot` `[ADDED] 2026-05-01`
+- [x] Step 2: backup/auto 目录从 active discovery 排除 `[REVIEW] 2026-05-01`
+- [x] Step 3: 新增 backup discovery `[REVIEW] 2026-05-01`
+- [x] Step 4: 新增 figures archive enrichment `[ADDED] 2026-05-01`
+- [x] Step 5: 新增只读 backup API `[REVIEW] 2026-05-01`
+- [x] Step 6: 前端展示 latest backup 信息 `[REVIEW] 2026-05-01`
 
 ## 已知问题
 （暂无）

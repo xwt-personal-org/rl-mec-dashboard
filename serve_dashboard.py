@@ -51,6 +51,7 @@ if __name__ == "__main__":
 
     print(f"experiments_dir={config.experiments_dir}")
     print(f"results_dir={config.results_dir}")
+    print(f"figures_dir={config.figures_dir}")
     print(f"logs_dir={config.logs_dir}")
     print(f"benchmark_json={config.benchmark_json}")
     uvicorn.run(app, host=config.host, port=config.port)

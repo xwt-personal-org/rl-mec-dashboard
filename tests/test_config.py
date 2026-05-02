@@ -8,6 +8,7 @@ def test_default_config_uses_experiments_dir():
 
     assert cfg.experiments_dir.name == "experiments"
     assert cfg.results_dir.name == "results"
+    assert cfg.figures_dir.name == "figures"
     assert cfg.benchmark_json.as_posix() == "results/benchmark.json"
     assert cfg.default_run_id == "paper2_full_17_vscode"
     assert cfg.quick_run_id == "vscode_quick"
@@ -22,6 +23,8 @@ def test_parse_cli_experiments_and_results_dir():
             "C:/paper2/experiments",
             "--results-dir",
             "C:/paper2/results",
+            "--figures-dir",
+            "C:/paper2/figures",
             "--default-run-id",
             "full",
             "--quick-run-id",
@@ -33,6 +36,7 @@ def test_parse_cli_experiments_and_results_dir():
 
     assert str(cfg.experiments_dir).endswith("experiments")
     assert str(cfg.results_dir).endswith("results")
+    assert str(cfg.figures_dir).endswith("figures")
     assert cfg.default_run_id == "full"
     assert cfg.quick_run_id == "quick"
     assert cfg.log_tail_bytes == 1024
@@ -51,3 +55,9 @@ def test_benchmark_export_path():
     assert benchmark_export_path(cfg, "paper2_full_17_vscode").as_posix().endswith(
         "results/benchmark_paper2_full_17_vscode.json"
     )
+
+
+def test_default_config_uses_figures_dir():
+    cfg = create_default_config()
+
+    assert cfg.figures_dir.name == "figures"

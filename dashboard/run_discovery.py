@@ -2,13 +2,30 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
 from dashboard.config import DashboardConfig
 from dashboard.experiment_reader import safe_read_json_file
-from dashboard.models import AlgorithmResult, RunDescriptor
+from dashboard.models import AlgorithmResult, BackupSnapshot, RunDescriptor
 from dashboard.protocol_reader import read_json_file
+
+
+BACKUP_DIR_PATTERN = re.compile(
+    r"^(?P<source_run_id>[A-Za-z0-9_.-]+)_(?P<backup_type>backup|auto)_(?P<timestamp>\d{8}_\d{6})$"
+)
+
+
+def parse_backup_dir_name(name: str) -> tuple[str, str, str] | None:
+    match = BACKUP_DIR_PATTERN.match(name)
+    if match is None:
+        return None
+    return match.group("source_run_id"), match.group("backup_type"), match.group("timestamp")
+
+
+def is_backup_experiment_dir(path: Path) -> bool:
+    return parse_backup_dir_name(Path(path).name) is not None
 
 
 def discover_experiment_runs(experiments_dir: Path | None, results_dir: Path) -> list[RunDescriptor]:
@@ -21,6 +38,8 @@ def discover_experiment_runs(experiments_dir: Path | None, results_dir: Path) ->
     descriptors: list[RunDescriptor] = []
     for experiment_dir in sorted(experiments_dir.iterdir()):
         if not experiment_dir.is_dir():
+            continue
+        if is_backup_experiment_dir(experiment_dir):
             continue
         run_json_file = experiment_dir / "run.json"
         state_json_file = experiment_dir / "state.json"
@@ -50,6 +69,79 @@ def discover_experiment_runs(experiments_dir: Path | None, results_dir: Path) ->
             )
         )
     return descriptors
+
+
+def discover_experiment_backups(experiments_dir: Path | None, results_dir: Path) -> list[BackupSnapshot]:
+    if experiments_dir is None:
+        return []
+    experiments_dir = Path(experiments_dir)
+    if not experiments_dir.exists():
+        return []
+
+    backups: list[BackupSnapshot] = []
+    archive_root = Path(results_dir) / "archive"
+    for backup_dir in sorted(experiments_dir.iterdir()):
+        if not backup_dir.is_dir():
+            continue
+        parsed = parse_backup_dir_name(backup_dir.name)
+        if parsed is None:
+            continue
+        source_run_id, backup_type, timestamp = parsed
+        backup_id = f"{source_run_id}_{backup_type}_{timestamp}"
+
+        run_payload, _ = safe_read_json_file(backup_dir / "run.json")
+        state_payload, _ = safe_read_json_file(backup_dir / "state.json")
+        run_data = run_payload if isinstance(run_payload, dict) else {}
+        state_data = state_payload if isinstance(state_payload, dict) else {}
+
+        records = state_data.get("records")
+        algorithms = run_data.get("algorithms")
+        completed = state_data.get("completed_algorithms")
+        total_algorithms = _list_len(records)
+        if total_algorithms == 0:
+            total_algorithms = _list_len(algorithms)
+
+        benchmark_archive = archive_root / timestamp
+        benchmark_archive_dir = ""
+        benchmark_files: list[str] = []
+        if benchmark_archive.exists() and benchmark_archive.is_dir():
+            benchmark_archive_dir = str(benchmark_archive)
+            benchmark_files = sorted(item.name for item in benchmark_archive.glob("benchmark*.json") if item.is_file())
+
+        backups.append(
+            BackupSnapshot(
+                run_id=backup_id,
+                backup_id=backup_id,
+                backup_type=backup_type,
+                timestamp=timestamp,
+                experiment_dir=str(backup_dir),
+                display_name=str(run_data.get("name") or source_run_id),
+                source_run_id=source_run_id,
+                status=str(state_data.get("status") or ""),
+                completed_algorithms=_list_len(completed),
+                total_algorithms=total_algorithms,
+                created_at=str(run_data.get("created_at") or state_data.get("created_at") or ""),
+                updated_at=str(state_data.get("updated_at") or run_data.get("updated_at") or ""),
+                benchmark_archive_dir=benchmark_archive_dir,
+                benchmark_files=benchmark_files,
+            )
+        )
+    return sorted(backups, key=lambda item: (-int(item.timestamp.replace("_", "")), item.backup_id))
+
+
+def enrich_backup_figures(backups: list[BackupSnapshot], figures_dir: Path | None) -> list[BackupSnapshot]:
+    if figures_dir is None:
+        return backups
+    figures_dir = Path(figures_dir)
+    if not figures_dir.exists():
+        return backups
+
+    for backup in backups:
+        candidate = figures_dir / "archive" / backup.timestamp
+        if candidate.exists() and candidate.is_dir():
+            backup.figures_archive_dir = str(candidate)
+            backup.figure_files = sorted(item.name for item in candidate.iterdir() if item.is_file())
+    return backups
 
 
 def default_experiment_placeholders(config: DashboardConfig) -> list[RunDescriptor]:
@@ -222,6 +314,10 @@ def _first_value(*values: Any) -> Any:
         if value not in (None, ""):
             return value
     return None
+
+
+def _list_len(value: Any) -> int:
+    return len(value) if isinstance(value, list) else 0
 
 
 def _optional_float(value: Any) -> float | None:

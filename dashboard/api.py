@@ -14,7 +14,8 @@ from fastapi.responses import HTMLResponse, Response
 from dashboard.config import DashboardConfig, benchmark_export_path
 from dashboard.experiment_reader import read_text_tail, safe_read_json_file
 from dashboard.exporter import results_to_csv, results_to_markdown
-from dashboard.models import run_state_to_dict, run_summary_to_dict
+from dashboard.models import dataclass_to_dict, run_state_to_dict, run_summary_to_dict
+from dashboard.run_discovery import discover_experiment_backups, enrich_backup_figures
 from dashboard.sse import create_sse_response, run_snapshot_event_generator
 from dashboard.state_aggregator import RunStateAggregator
 from dashboard.state_store import DashboardStateStore
@@ -77,6 +78,16 @@ def register_routes(app: FastAPI, store: DashboardStateStore) -> None:
         if state is None:
             raise HTTPException(status_code=404, detail="Run not found")
         return run_state_to_dict(state)
+
+    @app.get("/api/backups")
+    async def list_backups():
+        backups = _discover_backups(store)
+        return {"backups": [dataclass_to_dict(backup) for backup in backups]}
+
+    @app.get("/api/runs/{run_id}/backups")
+    async def list_run_backups(run_id: str):
+        backups = [backup for backup in _discover_backups(store) if backup.source_run_id == run_id]
+        return {"run_id": run_id, "backups": [dataclass_to_dict(backup) for backup in backups]}
 
     @app.get("/api/runs/{run_id}/events")
     async def stream_events(run_id: str, request: Request):
@@ -153,6 +164,11 @@ def _selected_states(store: DashboardStateStore, run_ids: str):
         if state is not None:
             states.append(state)
     return states
+
+
+def _discover_backups(store: DashboardStateStore):
+    backups = discover_experiment_backups(store.config.experiments_dir, store.config.results_dir)
+    return enrich_backup_figures(backups, store.config.figures_dir)
 
 
 def _log_tail_payload(store: DashboardStateStore, run_id: str, algorithm: str, stream: str) -> dict:

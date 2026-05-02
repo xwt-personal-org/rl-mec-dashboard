@@ -119,6 +119,26 @@ class ExperimentStateSnapshot:
 
 
 @dataclass
+class BackupSnapshot:
+    run_id: str
+    backup_id: str
+    backup_type: str
+    timestamp: str
+    experiment_dir: str
+    display_name: str = ""
+    source_run_id: str = ""
+    status: str = ""
+    completed_algorithms: int = 0
+    total_algorithms: int = 0
+    created_at: str = ""
+    updated_at: str = ""
+    benchmark_archive_dir: str = ""
+    benchmark_files: list[str] = field(default_factory=list)
+    figures_archive_dir: str = ""
+    figure_files: list[str] = field(default_factory=list)
+
+
+@dataclass
 class RunMeta:
     run_id: str
     created_at: str = ""
