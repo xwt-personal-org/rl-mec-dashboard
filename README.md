@@ -130,6 +130,35 @@ C:\Users\22003\paper2\paper2\.venv\Scripts\python.exe serve_dashboard.py \
 python -m pytest -v
 ```
 
+## Backup scan and deletion
+
+Useful launch options:
+
+```bash
+C:\Users\22003\paper2\paper2\.venv\Scripts\python.exe serve_dashboard.py \
+    --experiments-dir C:\Users\22003\paper2\paper2\experiments \
+    --results-dir C:\Users\22003\paper2\paper2\results \
+    --figures-dir C:\Users\22003\paper2\paper2\figures \
+    --backup-scan-dir C:\Users\22003\paper2\paper2 \
+    --logs-dir C:\Users\22003\paper2\paper2\logs \
+    --benchmark-json C:\Users\22003\paper2\paper2\results\benchmark.json \
+    --host 127.0.0.1 --port 8088
+```
+
+Backup visibility APIs:
+
+- `GET /api/backups`
+- `GET /api/runs/{run_id}/backups`
+- `GET /api/backups/diagnostics`
+
+Danger Zone deletion APIs:
+
+- `GET /api/delete-targets`
+- `POST /api/delete-preview`
+- `POST /api/delete-confirm`
+
+Deletion is permanent from the dashboard perspective. The browser sends only `target_id`, preview returns exact paths and a confirm token, running experiments are blocked, and dashboard does not provide restore/fresh/start/stop training actions.
+
 ## License
 
 MIT

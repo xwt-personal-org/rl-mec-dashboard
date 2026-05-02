@@ -7,70 +7,137 @@
     <link rel="icon" href="data:,">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <style>
+        :root {
+            --bg: #0b0f16;
+            --bg-soft: #101724;
+            --panel: #141d2b;
+            --panel-strong: #172235;
+            --panel-muted: #101824;
+            --line: #2a3a52;
+            --line-soft: rgba(148, 163, 184, 0.18);
+            --text: #f5f8ff;
+            --muted: #9caac0;
+            --muted-strong: #c4d0e4;
+            --blue: #4d7dff;
+            --blue-soft: rgba(77, 125, 255, 0.18);
+            --green: #17a979;
+            --amber: #d99b2b;
+            --red: #d94f62;
+            --shadow: 0 18px 48px rgba(3, 8, 20, 0.28);
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { min-height: 100vh; background: #101624; color: #eef3ff; font-family: "Segoe UI", Arial, sans-serif; padding: 20px; }
-        .container { max-width: 1480px; margin: 0 auto; }
-        h1 { font-size: 2rem; margin-bottom: 18px; }
-        h2 { font-size: 1rem; margin-bottom: 12px; }
+        body {
+            min-height: 100vh;
+            background: linear-gradient(180deg, var(--bg) 0%, #0e1520 48%, #0b0f16 100%);
+            color: var(--text);
+            font-family: "Segoe UI", Arial, sans-serif;
+            padding: 22px;
+        }
+        .container { max-width: 1500px; margin: 0 auto; }
+        h1 { font-size: 1.9rem; line-height: 1.1; letter-spacing: 0; }
+        h2 { font-size: 0.95rem; line-height: 1.25; margin-bottom: 12px; color: var(--text); }
         button, select, input { font: inherit; }
-        .topbar, .filters, .panel, .status-bar, .charts-grid { margin-bottom: 18px; }
-        .topbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-        .topbar select, .filters select, .filters input, .compare-controls select { min-height: 36px; background: #172033; color: #eef3ff; border: 1px solid #2c3a58; border-radius: 6px; padding: 6px 10px; }
-        .topbar select { min-width: 280px; }
-        .btn { min-height: 36px; border: 0; border-radius: 6px; color: #fff; background: #3f6ee8; padding: 7px 12px; cursor: pointer; }
-        .btn.secondary { background: #27364f; }
-        .btn.danger { background: #b93838; }
+        .app-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 18px 20px;
+            margin-bottom: 16px;
+            background: rgba(20, 29, 43, 0.88);
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+        }
+        .title-block { min-width: 220px; }
+        .title-kicker { color: var(--muted); font-size: 0.78rem; margin-top: 6px; }
+        .dashboard-main { display: grid; gap: 16px; }
+        .topbar, .filters, .charts-grid { margin-bottom: 0; }
+        .panel, .status-bar { margin-bottom: 0; }
+        .topbar { display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; flex: 1; }
+        .topbar select, .filters select, .filters input, .compare-controls select, .log-controls select, .log-controls input {
+            min-height: 36px;
+            background: var(--panel-muted);
+            color: var(--text);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 6px 10px;
+        }
+        .topbar select { width: clamp(300px, 34vw, 540px); }
+        .btn { min-height: 36px; border: 0; border-radius: 6px; color: #fff; background: var(--blue); padding: 7px 12px; cursor: pointer; }
+        .btn.secondary { background: #26364f; }
+        .btn.danger { background: #b93d4d; }
+        .btn:hover:not(:disabled), .mini-btn:hover { filter: brightness(1.08); }
         .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-        .language-toggle { display: inline-flex; overflow: hidden; border: 1px solid #34527c; border-radius: 6px; }
-        .language-toggle button { min-height: 34px; border: 0; border-right: 1px solid #34527c; color: #bfcae1; background: #172033; padding: 6px 10px; cursor: pointer; }
+        .language-toggle { display: inline-flex; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; }
+        .language-toggle button { min-height: 34px; border: 0; border-right: 1px solid var(--line); color: var(--muted-strong); background: var(--panel-muted); padding: 6px 10px; cursor: pointer; }
         .language-toggle button:last-child { border-right: 0; }
-        .language-toggle button.active { color: #fff; background: #3f6ee8; }
-        .muted { color: #9aa8c2; font-size: 0.85rem; }
-        .connection-status { display: none; padding: 8px 12px; color: #ffc4c4; background: #361d25; border: 1px solid #94404a; border-radius: 6px; margin-bottom: 14px; }
-        .panel { background: #151f31; border: 1px solid #263753; border-radius: 8px; padding: 16px; }
+        .language-toggle button.active { color: #fff; background: var(--blue); }
+        .muted { color: var(--muted); font-size: 0.85rem; }
+        .connection-status { display: none; padding: 8px 12px; color: #ffd1d8; background: rgba(104, 34, 48, 0.45); border: 1px solid #94404a; border-radius: 6px; margin-bottom: 14px; }
+        .panel { background: rgba(20, 29, 43, 0.92); border: 1px solid var(--line); border-radius: 8px; padding: 16px; box-shadow: 0 12px 36px rgba(3, 8, 20, 0.18); }
+        .panel h2 { display: flex; align-items: center; gap: 8px; }
+        .panel h2::before { content: ""; width: 3px; height: 16px; border-radius: 999px; background: var(--blue); }
+        .panel h2 .mini-btn { margin-left: auto; }
         .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .run-overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-        .run-tile { background: #111a2a; border: 1px solid #273854; border-radius: 8px; padding: 12px; cursor: pointer; overflow: hidden; }
-        .run-tile.fixed { border-color: #405c88; }
-        .run-tile.active { border-color: #5f83ff; }
+        .run-overview-panel { min-height: 220px; }
+        .run-overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; max-height: 344px; overflow: auto; padding-right: 4px; }
+        .run-overview > .empty { grid-column: 1 / -1; }
+        .run-tile { background: var(--panel-muted); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px; cursor: pointer; overflow: hidden; transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease; }
+        .run-tile:hover { transform: translateY(-1px); border-color: #48668f; background: #121d2c; }
+        .run-tile.fixed { border-color: #3d5a83; }
+        .run-tile.active { border-color: var(--blue); box-shadow: inset 3px 0 0 var(--blue); }
         .run-tile-header { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
         .run-id { font-weight: 700; word-break: break-word; }
-        .run-note { color: #bfcae1; font-size: 0.78rem; line-height: 1.4; margin: 6px 0 8px; }
-        .run-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 0.82rem; color: #bfcae1; }
+        .run-note { color: var(--muted-strong); font-size: 0.78rem; line-height: 1.4; margin: 6px 0 8px; }
+        .run-grid { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 6px 10px; font-size: 0.82rem; color: var(--muted-strong); }
         .run-grid span { min-width: 0; overflow-wrap: anywhere; }
-        .backup-grid { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 10px; }
-        .backup-item { background: #111a2a; border: 1px solid #273854; border-radius: 8px; padding: 10px; }
-        .backup-item .label { color: #9aa8c2; font-size: 0.74rem; margin-bottom: 5px; }
-        .backup-item .value { color: #eef3ff; font-size: 0.9rem; font-weight: 700; overflow-wrap: anywhere; }
+        .backup-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        #backup-content.empty, #global-backups .empty { background: var(--panel-muted); border: 1px solid var(--line-soft); border-radius: 8px; }
+        .backup-item { background: var(--panel-muted); border: 1px solid var(--line-soft); border-radius: 8px; padding: 10px; min-width: 0; }
+        .backup-item .label { color: var(--muted); font-size: 0.74rem; margin-bottom: 5px; }
+        .backup-item .value { color: var(--text); font-size: 0.9rem; font-weight: 700; overflow-wrap: anywhere; }
+        .panel-subtitle { color: var(--muted-strong); font-size: 0.84rem; margin: 16px 0 8px; }
+        .diagnostics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+        .diagnostics-note { color: #ffd17a; margin-top: 8px; font-size: 0.84rem; }
+        .danger-zone { border-color: rgba(217, 79, 98, 0.72); background: rgba(42, 18, 27, 0.72); }
+        .danger-zone h2 { color: #ffc6ce; }
+        .danger-zone h2::before { background: var(--red); }
+        .delete-preview { margin-top: 12px; background: rgba(11, 15, 22, 0.82); border: 1px solid rgba(217, 79, 98, 0.35); border-radius: 8px; padding: 12px; }
+        .delete-path-list { max-height: 160px; overflow: auto; margin-top: 8px; padding-left: 18px; color: var(--muted-strong); font-size: 0.78rem; }
+        .delete-confirm-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+        .delete-confirm-row input { min-height: 36px; min-width: min(100%, 420px); background: var(--panel-muted); color: var(--text); border: 1px solid rgba(217, 79, 98, 0.62); border-radius: 6px; padding: 6px 10px; }
         .run-error { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-        .status-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
-        .metric { background: #151f31; border: 1px solid #263753; border-radius: 8px; padding: 14px; min-height: 86px; }
-        .metric h3 { font-size: 0.78rem; color: #9aa8c2; margin-bottom: 8px; }
+        .status-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+        .metric { background: rgba(20, 29, 43, 0.92); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-height: 86px; box-shadow: 0 10px 28px rgba(3, 8, 20, 0.14); }
+        .metric h3 { font-size: 0.76rem; color: var(--muted); margin-bottom: 8px; }
         .metric .value { font-size: 1.35rem; font-weight: 700; }
-        .metric .sub { color: #9aa8c2; font-size: 0.76rem; margin-top: 4px; }
-        .progress-bar-wrap { background: #263147; border-radius: 6px; overflow: hidden; height: 24px; }
-        .progress-bar-fill { height: 100%; min-width: 34px; background: #3f6ee8; text-align: right; padding-right: 8px; line-height: 24px; font-size: 0.78rem; transition: width 0.2s ease; }
-        .progress-bar-fill.overall { background: #1f9d67; }
-        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .metric .sub { color: var(--muted); font-size: 0.76rem; margin-top: 4px; }
+        .progress-panel { background: linear-gradient(180deg, rgba(20, 29, 43, 0.96), rgba(16, 24, 36, 0.96)); }
+        .progress-bar-wrap { background: #263247; border-radius: 6px; overflow: hidden; height: 24px; }
+        .progress-bar-fill { height: 100%; min-width: 34px; background: var(--blue); text-align: right; padding-right: 8px; line-height: 24px; font-size: 0.78rem; transition: width 0.2s ease; }
+        .progress-bar-fill.overall { background: var(--green); }
+        .charts-grid, .logs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
         .chart-container { height: 260px; position: relative; }
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { border-bottom: 1px solid #273854; padding: 8px; text-align: left; font-size: 0.82rem; white-space: nowrap; }
-        th { color: #9aa8c2; background: #19243a; }
+        th, td { border-bottom: 1px solid var(--line-soft); padding: 8px 10px; text-align: left; font-size: 0.82rem; white-space: nowrap; }
+        th { color: var(--muted); background: rgba(23, 34, 53, 0.82); font-weight: 700; }
+        tbody tr:hover { background: rgba(77, 125, 255, 0.06); }
         .badge { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
         .badge-running { background: #214d8c; }
         .badge-finished, .badge-completed { background: #1d6f50; }
         .badge-stalled, .badge-failed, .badge-interrupted { background: #8c2d2d; }
         .badge-degraded, .badge-warn { background: #8a5a10; }
-        .badge-idle, .badge-historical, .badge-initialized, .badge-pending, .badge-placeholder, .badge-skipped, .badge-stopped { background: #48566f; }
-        .current-row { outline: 1px solid #5f83ff; background: #182845; }
-        .mini-btn { min-height: 28px; border: 1px solid #34527c; border-radius: 5px; color: #eef3ff; background: #20304b; padding: 4px 8px; cursor: pointer; margin-right: 4px; }
-        .mini-btn.active { background: #3f6ee8; border-color: #6f8eff; }
-        .status-marker { color: #ffd166; font-size: 0.78rem; margin-left: 6px; }
+        .badge-idle, .badge-historical, .badge-initialized, .badge-pending, .badge-placeholder, .badge-skipped, .badge-stopped { background: #4d5a70; }
+        .current-row { outline: 1px solid var(--blue); background: var(--blue-soft); }
+        .mini-btn { min-height: 28px; border: 1px solid var(--line); border-radius: 5px; color: var(--text); background: #20304b; padding: 4px 8px; cursor: pointer; margin-right: 4px; }
+        .mini-btn.active { background: var(--blue); border-color: #82a0ff; }
+        .status-marker { color: #ffd17a; font-size: 0.78rem; margin-left: 6px; }
         .compare-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
         .compare-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr); gap: 18px; }
         .log-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-        .log-window { height: 280px; overflow-y: auto; background: #0b111d; border: 1px solid #263753; border-radius: 8px; padding: 10px; font: 0.78rem/1.5 Consolas, "Courier New", monospace; }
+        .log-window { height: 280px; overflow-y: auto; background: #080d14; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: 0.78rem/1.5 Consolas, "Courier New", monospace; }
         .artifact-log-window { min-height: 320px; white-space: pre-wrap; word-break: break-word; }
         .log-tabs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
         .log-line { padding: 2px 0; word-break: break-word; cursor: pointer; }
@@ -78,31 +145,47 @@
         .log-warn { color: #ffd166; }
         .log-info { color: #7fb2ff; }
         .error-summary { border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem; }
-        .error-summary.has-error { color: #ffc4c4; background: #241722; border: 1px solid #4a2c37; }
-        .error-summary.empty-summary { color: #9aa8c2; background: #111a2a; border: 1px solid #273854; }
-        .empty { color: #9aa8c2; text-align: center; padding: 24px; }
-        @media (max-width: 1100px) { .status-bar { grid-template-columns: repeat(2, 1fr); } .charts-grid, .compare-grid, .backup-grid { grid-template-columns: 1fr; } }
-        @media (max-width: 700px) { body { padding: 12px; } .status-bar { grid-template-columns: 1fr; } .topbar select { min-width: 100%; } }
+        .error-summary.has-error { color: #ffd1d8; background: rgba(42, 18, 27, 0.7); border: 1px solid rgba(217, 79, 98, 0.4); }
+        .error-summary.empty-summary { color: var(--muted); background: var(--panel-muted); border: 1px solid var(--line-soft); }
+        .empty { color: var(--muted); text-align: center; padding: 24px; }
+        @media (max-width: 1100px) {
+            .app-header { align-items: stretch; flex-direction: column; }
+            .topbar { justify-content: flex-start; }
+            .charts-grid, .compare-grid, .backup-grid, .logs-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 700px) {
+            body { padding: 12px; }
+            .app-header { padding: 14px; }
+            .status-bar { grid-template-columns: 1fr; }
+            .topbar select { width: 100%; }
+            .filters select, .filters input, .filters .btn, .log-controls select, .log-controls input { width: 100%; }
+            th, td { padding: 8px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1 data-i18n="app.title">RL-MEC Training Dashboard</h1>
-
-        <div class="topbar">
-            <select id="run-select" onchange="selectRun(this.value)"></select>
-            <span class="muted" id="run-info" data-i18n="top.noRunSelected">No run selected</span>
-            <div class="language-toggle" data-i18n-aria-label="language.ariaLabel" aria-label="Language">
-                <button type="button" data-lang="zh" onclick="setLanguage('zh')">中文</button>
-                <button type="button" data-lang="en" onclick="setLanguage('en')">EN</button>
+        <header class="app-header">
+            <div class="title-block">
+                <h1 data-i18n="app.title">RL-MEC Training Dashboard</h1>
+                <div class="title-kicker"><span id="run-info" data-i18n="top.noRunSelected">No run selected</span></div>
             </div>
-            <button class="btn secondary" onclick="initSSE()" data-i18n="action.reconnectSse">Reconnect SSE</button>
-            <button class="btn danger" onclick="stopDashboardServer()" data-i18n="action.stopDashboard">Stop Dashboard Server</button>
-        </div>
+
+            <div class="topbar">
+                <select id="run-select" onchange="selectRun(this.value)"></select>
+                <div class="language-toggle" data-i18n-aria-label="language.ariaLabel" aria-label="Language">
+                    <button type="button" data-lang="zh" onclick="setLanguage('zh')">中文</button>
+                    <button type="button" data-lang="en" onclick="setLanguage('en')">EN</button>
+                </div>
+                <button class="btn secondary" onclick="initSSE()" data-i18n="action.reconnectSse">Reconnect SSE</button>
+                <button class="btn danger" onclick="stopDashboardServer()" data-i18n="action.stopDashboard">Stop Dashboard Server</button>
+            </div>
+        </header>
 
         <div id="connection-status" class="connection-status" data-i18n="connection.disconnected">Disconnected. Reconnecting...</div>
 
-        <section class="panel">
+        <main class="dashboard-main">
+        <section class="panel run-overview-panel">
             <h2 data-i18n="panel.runOverview">Run Overview</h2>
             <div class="filters">
                 <select id="status-filter">
@@ -133,7 +216,7 @@
             <div class="metric"><h3 data-i18n="metric.eta">ETA</h3><div class="value" id="eta">-</div><div class="sub" id="elapsed">Elapsed: -</div></div>
         </section>
 
-        <section class="panel">
+        <section class="panel progress-panel">
             <h2 data-i18n="progress.title">Progress</h2>
             <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar" style="width:0%">0%</div></div>
             <div class="muted" style="display:flex;justify-content:space-between;margin:8px 0 12px;">
@@ -144,9 +227,25 @@
             <div class="progress-bar-wrap"><div class="progress-bar-fill overall" id="overall-bar" style="width:0%">0%</div></div>
         </section>
 
+        <section class="charts-grid">
+            <div class="panel">
+                <h2><span data-i18n="chart.rewardComparison">Reward Comparison</span> <button class="mini-btn" onclick="refreshBenchmarkCharts()" data-i18n="action.refreshBenchmark">Refresh Benchmark</button></h2>
+                <div id="benchmark-empty" class="muted" style="margin-bottom:8px;"></div>
+                <div class="chart-container"><canvas id="rewardChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <h2 data-i18n="chart.trainingTime">Training Time</h2>
+                <div class="chart-container"><canvas id="timeChart"></canvas></div>
+            </div>
+        </section>
+
         <section class="panel">
             <h2 data-i18n="backup.title">Backups</h2>
             <div id="backup-content" class="empty" data-i18n="backup.none">No backups found for this run.</div>
+            <h3 class="panel-subtitle" data-i18n="backup.recent">Recent Backups</h3>
+            <div id="global-backups" class="table-wrap"></div>
+            <h3 class="panel-subtitle" data-i18n="backup.diagnostics">Backup Diagnostics</h3>
+            <div id="backup-diagnostics" class="diagnostics-grid"></div>
         </section>
 
         <section class="panel">
@@ -169,28 +268,6 @@
                     </thead>
                     <tbody id="algorithm-body"><tr><td colspan="10" class="empty" data-i18n="table.noAlgorithmRecords">No algorithm records yet</td></tr></tbody>
                 </table>
-            </div>
-        </section>
-
-        <section class="panel">
-            <h2 data-i18n="artifact.title">Artifact Logs</h2>
-            <div class="log-tabs">
-                <span class="muted" id="artifact-log-title" data-i18n="artifact.select">Select an algorithm log</span>
-                <button class="mini-btn" id="stdout-tab" onclick="switchArtifactLogStream('stdout')">stdout</button>
-                <button class="mini-btn" id="stderr-tab" onclick="switchArtifactLogStream('stderr')">stderr</button>
-            </div>
-            <pre id="artifact-log-window" class="log-window artifact-log-window" data-i18n="artifact.none">No artifact log selected.</pre>
-        </section>
-
-        <section class="charts-grid">
-            <div class="panel">
-                <h2><span data-i18n="chart.rewardComparison">Reward Comparison</span> <button class="mini-btn" onclick="refreshBenchmarkCharts()" data-i18n="action.refreshBenchmark">Refresh Benchmark</button></h2>
-                <div id="benchmark-empty" class="muted" style="margin-bottom:8px;"></div>
-                <div class="chart-container"><canvas id="rewardChart"></canvas></div>
-            </div>
-            <div class="panel">
-                <h2 data-i18n="chart.trainingTime">Training Time</h2>
-                <div class="chart-container"><canvas id="timeChart"></canvas></div>
             </div>
         </section>
 
@@ -239,21 +316,46 @@
             </div>
         </section>
 
-        <section class="panel">
-            <h2 data-i18n="logs.title">Live Logs</h2>
-            <div class="log-controls">
-                <select id="log-level-filter">
-                    <option value="all" data-i18n="filter.allLevels">All levels</option>
-                    <option value="error" data-i18n="level.error">Error</option>
-                    <option value="warn" data-i18n="level.warn">Warn</option>
-                    <option value="info" data-i18n="level.info">Info</option>
-                </select>
-                <input id="log-keyword-filter" type="search" placeholder="Filter logs" data-i18n-placeholder="filter.searchLogs">
-                <label class="muted"><input id="log-autoscroll-toggle" type="checkbox" checked> <span data-i18n="log.autoScroll">Auto-scroll</span></label>
+        <section class="logs-grid">
+            <div class="panel">
+                <h2 data-i18n="artifact.title">Artifact Logs</h2>
+                <div class="log-tabs">
+                    <span class="muted" id="artifact-log-title" data-i18n="artifact.select">Select an algorithm log</span>
+                    <button class="mini-btn" id="stdout-tab" onclick="switchArtifactLogStream('stdout')">stdout</button>
+                    <button class="mini-btn" id="stderr-tab" onclick="switchArtifactLogStream('stderr')">stderr</button>
+                </div>
+                <pre id="artifact-log-window" class="log-window artifact-log-window" data-i18n="artifact.none">No artifact log selected.</pre>
             </div>
-            <div id="error-summary" class="error-summary empty-summary" data-i18n="log.noRecentErrors">No recent errors</div>
-            <div id="log-window" class="log-window"><div class="log-line" data-i18n="log.waiting">Waiting for logs...</div></div>
+
+            <div class="panel">
+                <h2 data-i18n="logs.title">Live Logs</h2>
+                <div class="log-controls">
+                    <select id="log-level-filter">
+                        <option value="all" data-i18n="filter.allLevels">All levels</option>
+                        <option value="error" data-i18n="level.error">Error</option>
+                        <option value="warn" data-i18n="level.warn">Warn</option>
+                        <option value="info" data-i18n="level.info">Info</option>
+                    </select>
+                    <input id="log-keyword-filter" type="search" placeholder="Filter logs" data-i18n-placeholder="filter.searchLogs">
+                    <label class="muted"><input id="log-autoscroll-toggle" type="checkbox" checked> <span data-i18n="log.autoScroll">Auto-scroll</span></label>
+                </div>
+                <div id="error-summary" class="error-summary empty-summary" data-i18n="log.noRecentErrors">No recent errors</div>
+                <div id="log-window" class="log-window"><div class="log-line" data-i18n="log.waiting">Waiting for logs...</div></div>
+            </div>
         </section>
+
+        <section class="panel danger-zone">
+            <h2 data-i18n="delete.title">Danger Zone</h2>
+            <div class="muted" data-i18n="delete.description">Delete real local source files only after preview and target-id confirmation.</div>
+            <div id="delete-targets" class="table-wrap" style="margin-top:12px;"></div>
+            <div id="delete-preview" class="delete-preview empty" data-i18n="delete.noPreview">No delete preview selected.</div>
+            <div class="delete-confirm-row">
+                <input id="delete-confirm-input" type="text" data-i18n-placeholder="delete.confirmPlaceholder" placeholder="Type target_id to confirm">
+                <button id="delete-confirm-button" class="btn danger" onclick="confirmDeleteTarget()" disabled data-i18n="delete.confirmButton">Confirm Delete Source Files</button>
+            </div>
+            <div id="delete-message" class="muted" style="margin-top:8px;"></div>
+        </section>
+        </main>
     </div>
 
     <script>
@@ -320,6 +422,36 @@
                 'backup.files': 'Files',
                 'backup.auto': 'Auto',
                 'backup.manual': 'Manual',
+                'backup.archive': 'Archive',
+                'backup.recent': 'Recent Backups',
+                'backup.diagnostics': 'Backup Diagnostics',
+                'backup.scannedRoots': 'Scanned roots',
+                'backup.resultsArchive': 'Results archive',
+                'backup.matched': 'Matched backups',
+                'backup.checkPaths': 'No backups matched. Check --experiments-dir, --backup-scan-dir and --results-dir.',
+                'backup.noGlobal': 'No backups or archives discovered.',
+                'backup.view': 'View',
+                'delete.title': 'Danger Zone',
+                'delete.description': 'Delete real local source files only after preview and exact target-id confirmation.',
+                'delete.targets': 'Delete Targets',
+                'delete.targetId': 'Target ID',
+                'delete.targetType': 'Type',
+                'delete.displayName': 'Name',
+                'delete.paths': 'Paths',
+                'delete.preview': 'Preview',
+                'delete.previewButton': 'Preview',
+                'delete.deleteSourceFiles': 'Delete Source Files',
+                'delete.noTargets': 'No deletable local source targets found.',
+                'delete.noPreview': 'No delete preview selected.',
+                'delete.blocked': 'Blocked',
+                'delete.totalFiles': 'Files',
+                'delete.totalDirs': 'Directories',
+                'delete.totalBytes': 'Bytes',
+                'delete.confirmPlaceholder': 'Type target_id to confirm',
+                'delete.confirmButton': 'Confirm Delete Source Files',
+                'delete.typeMismatch': 'Type the exact target_id before confirming.',
+                'delete.success': 'Deleted {count} path(s).',
+                'delete.failed': 'Delete failed: {message}',
                 'table.algorithmStatus': 'Algorithm Status',
                 'table.noAlgorithmRecords': 'No algorithm records yet',
                 'table.algorithm': 'Algorithm',
@@ -443,6 +575,36 @@
                 'backup.files': '文件',
                 'backup.auto': '自动保护',
                 'backup.manual': '手动备份',
+                'backup.archive': '归档',
+                'backup.recent': '全局备份',
+                'backup.diagnostics': '备份诊断',
+                'backup.scannedRoots': '扫描目录',
+                'backup.resultsArchive': '结果归档',
+                'backup.matched': '匹配备份',
+                'backup.checkPaths': '没有匹配备份，请检查 --experiments-dir / --backup-scan-dir / --results-dir。',
+                'backup.noGlobal': '暂无备份或归档。',
+                'backup.view': '查看',
+                'delete.title': '危险区',
+                'delete.description': '只在预览和精确 target_id 确认后删除真实本地源文件。',
+                'delete.targets': '删除目标',
+                'delete.targetId': '目标 ID',
+                'delete.targetType': '类型',
+                'delete.displayName': '名称',
+                'delete.paths': '路径',
+                'delete.preview': '预览',
+                'delete.previewButton': '预览',
+                'delete.deleteSourceFiles': '删除源文件',
+                'delete.noTargets': '没有可删除的本地源文件目标。',
+                'delete.noPreview': '尚未选择删除预览。',
+                'delete.blocked': '已阻止',
+                'delete.totalFiles': '文件',
+                'delete.totalDirs': '目录',
+                'delete.totalBytes': '字节',
+                'delete.confirmPlaceholder': '输入 target_id 确认',
+                'delete.confirmButton': '确认删除源文件',
+                'delete.typeMismatch': '确认前必须输入完全一致的 target_id。',
+                'delete.success': '已删除 {count} 个路径。',
+                'delete.failed': '删除失败：{message}',
                 'table.algorithmStatus': '算法状态',
                 'table.noAlgorithmRecords': '暂无算法记录',
                 'table.algorithm': '算法',
@@ -510,8 +672,13 @@
         const dashboardState = {
             runs: [],
             backups: [],
+            backupDiagnostics: null,
             currentRunBackups: [],
+            deleteTargets: [],
+            pendingDeletePreview: null,
             currentRunId: null,
+            currentSelectionType: 'run',
+            currentSelectionValue: null,
             currentRunState: null,
             selectedRunIds: [],
             selectedMetric: 'reward',
@@ -586,6 +753,10 @@
             }
             renderRunOverview(dashboardState.runs);
             renderRunSelect();
+            renderGlobalBackups(dashboardState.backups);
+            renderBackupDiagnostics(dashboardState.backupDiagnostics);
+            renderDeleteTargets(dashboardState.deleteTargets);
+            renderDeletePreview(dashboardState.pendingDeletePreview);
             renderCompareState();
         }
 
@@ -629,25 +800,71 @@
             return response.json();
         }
 
+        async function apiPostJson(url, payload) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.detail || (response.status + ' ' + response.statusText));
+            return data;
+        }
+
         async function loadRuns() {
             const data = await apiGetJson('/api/runs');
             dashboardState.runs = data.runs || [];
             await loadBackups();
+            await loadBackupDiagnostics();
+            await loadDeleteTargets();
             if (!dashboardState.currentRunId && dashboardState.runs.length) {
                 const defaultRun = dashboardState.runs.find(run => run.run_id === DEFAULT_RUN_ID) || dashboardState.runs[0];
                 dashboardState.currentRunId = defaultRun.run_id;
+                dashboardState.currentSelectionType = 'run';
+                dashboardState.currentSelectionValue = 'run:' + defaultRun.run_id;
                 dashboardState.selectedRunIds = [];
+            } else if (!dashboardState.currentRunId && dashboardState.backups.length) {
+                dashboardState.currentRunId = dashboardState.backups[0].backup_id;
+                dashboardState.currentSelectionType = 'backup';
+                dashboardState.currentSelectionValue = 'backup:' + dashboardState.backups[0].backup_id;
+                dashboardState.selectedRunIds = [];
+            } else if (dashboardState.currentRunId && !dashboardState.currentSelectionValue) {
+                dashboardState.currentSelectionValue = dashboardState.currentSelectionType + ':' + dashboardState.currentRunId;
             }
             renderRunSelect();
             renderRunOverview(dashboardState.runs);
             await loadCompareData();
         }
 
-        async function fetchInitialRunState(runId) {
-            if (!runId) return null;
-            const state = await apiGetJson('/api/runs/' + encodeURIComponent(runId));
+        function parseSelection(value) {
+            const text = String(value || '');
+            if (text.startsWith('backup:')) {
+                const id = text.slice('backup:'.length);
+                return { type: 'backup', id, value: 'backup:' + id };
+            }
+            if (text.startsWith('run:')) {
+                const id = text.slice('run:'.length);
+                return { type: 'run', id, value: 'run:' + id };
+            }
+            return { type: 'run', id: text, value: text ? 'run:' + text : '' };
+        }
+
+        async function fetchInitialRunState(selectionValue) {
+            const selection = parseSelection(selectionValue || dashboardState.currentSelectionValue || dashboardState.currentRunId);
+            if (!selection.id) return null;
+            const url = selection.type === 'backup'
+                ? '/api/backups/' + encodeURIComponent(selection.id)
+                : '/api/runs/' + encodeURIComponent(selection.id);
+            const state = await apiGetJson(url);
+            dashboardState.currentRunId = selection.id;
+            dashboardState.currentSelectionType = selection.type;
+            dashboardState.currentSelectionValue = selection.value;
             dashboardState.currentRunState = state;
-            await loadRunBackups(runId);
+            if (selection.type === 'run') {
+                await loadRunBackups(selection.id);
+            } else {
+                dashboardState.currentRunBackups = [];
+            }
             renderRunDetail(state);
             return state;
         }
@@ -655,6 +872,7 @@
         async function loadBackups() {
             const payload = await apiGetJson('/api/backups');
             dashboardState.backups = payload.backups || [];
+            renderGlobalBackups(dashboardState.backups);
             return dashboardState.backups;
         }
 
@@ -666,6 +884,71 @@
             const payload = await apiGetJson(`/api/runs/${runId}/backups`);
             dashboardState.currentRunBackups = payload.backups || [];
             return dashboardState.currentRunBackups;
+        }
+
+        async function loadBackupDiagnostics() {
+            const payload = await apiGetJson('/api/backups/diagnostics');
+            dashboardState.backupDiagnostics = payload;
+            renderBackupDiagnostics(payload);
+            return payload;
+        }
+
+        async function loadDeleteTargets() {
+            const payload = await apiGetJson('/api/delete-targets');
+            dashboardState.deleteTargets = payload.targets || [];
+            renderDeleteTargets(dashboardState.deleteTargets);
+            return dashboardState.deleteTargets;
+        }
+
+        async function previewDeleteTarget(targetId) {
+            const preview = await apiPostJson('/api/delete-preview', { target_id: targetId });
+            dashboardState.pendingDeletePreview = preview;
+            document.getElementById('delete-message').textContent = '';
+            document.getElementById('delete-confirm-input').value = '';
+            renderDeletePreview(preview);
+        }
+
+        async function confirmDeleteTarget() {
+            const preview = dashboardState.pendingDeletePreview;
+            if (!preview) return;
+            const typed = document.getElementById('delete-confirm-input').value.trim();
+            if (typed !== preview.target_id) {
+                document.getElementById('delete-message').textContent = t('delete.typeMismatch');
+                return;
+            }
+            try {
+                const result = await apiPostJson('/api/delete-confirm', {
+                    target_id: preview.target_id,
+                    confirm_token: preview.confirm_token
+                });
+                dashboardState.pendingDeletePreview = null;
+                document.getElementById('delete-confirm-input').value = '';
+                document.getElementById('delete-message').textContent = t('delete.success', { count: (result.deleted_paths || []).length });
+                await loadRuns();
+                await loadBackups();
+                await loadBackupDiagnostics();
+                await loadDeleteTargets();
+                const currentStillExists = dashboardState.currentSelectionType === 'backup'
+                    ? dashboardState.backups.some(backup => backup.backup_id === dashboardState.currentRunId)
+                    : dashboardState.runs.some(run => run.run_id === dashboardState.currentRunId);
+                if (!currentStillExists) {
+                    dashboardState.currentRunId = dashboardState.runs.length ? dashboardState.runs[0].run_id : null;
+                    dashboardState.currentSelectionType = 'run';
+                    dashboardState.currentSelectionValue = dashboardState.currentRunId ? 'run:' + dashboardState.currentRunId : null;
+                }
+                if (dashboardState.currentRunId) {
+                    closeSSE();
+                    await fetchInitialRunState(dashboardState.currentSelectionValue);
+                    initSSE();
+                } else {
+                    dashboardState.currentRunState = null;
+                    document.getElementById('backup-content').className = 'empty';
+                    document.getElementById('backup-content').textContent = t('backup.none');
+                }
+                renderDeletePreview(null);
+            } catch (error) {
+                document.getElementById('delete-message').textContent = t('delete.failed', { message: error.message || error });
+            }
         }
 
         async function loadCompareData() {
@@ -712,12 +995,12 @@
             }
             root.innerHTML = filtered.map(run => {
                 const checked = dashboardState.selectedRunIds.includes(run.run_id) ? 'checked' : '';
-                const active = run.run_id === dashboardState.currentRunId ? ' active' : '';
+                const active = dashboardState.currentSelectionType === 'run' && run.run_id === dashboardState.currentRunId ? ' active' : '';
                 const fixed = (run.run_id === DEFAULT_RUN_ID || run.run_id === QUICK_RUN_ID) ? ' fixed' : '';
                 const note = run.run_id === QUICK_RUN_ID ? '<div class="run-note">' + escapeHtml(t('run.quickNote')) + '</div>' : '';
                 const latestBackup = run.is_placeholder ? null : latestBackupForRun(run.run_id);
                 const backupRow = latestBackup ? '<span>' + escapeHtml(t('backup.latest')) + '</span><span>' + escapeHtml(formatBackupTimestamp(latestBackup.timestamp)) + '</span>' : '';
-                return '<div class="run-tile' + fixed + active + '" onclick="selectRun(\'' + escapeAttr(run.run_id) + '\')">' +
+                return '<div class="run-tile' + fixed + active + '" onclick="selectRun(\'run:' + escapeAttr(run.run_id) + '\')">' +
                     '<div class="run-tile-header"><div><div class="run-id">' + escapeHtml(run.display_name || run.run_id) + '</div><div class="muted">' + escapeHtml(run.run_id) + '</div></div><label onclick="event.stopPropagation()" class="muted"><input type="checkbox" ' + checked + ' onchange="toggleCompareRun(\'' + escapeAttr(run.run_id) + '\', this.checked)"> ' + escapeHtml(t('run.compare')) + '</label></div>' +
                     note +
                     '<div class="run-grid">' +
@@ -744,12 +1027,16 @@
             return fixed.concat(rest);
         }
 
-        async function selectRun(runId) {
-            dashboardState.currentRunId = runId;
+        async function selectRun(value) {
+            const selection = parseSelection(value);
+            dashboardState.currentRunId = selection.id;
+            dashboardState.currentSelectionType = selection.type;
+            dashboardState.currentSelectionValue = selection.value;
             dashboardState.selectedLog = { runId: null, algorithm: null, stream: 'stdout' };
-            document.getElementById('run-select').value = runId;
+            document.getElementById('run-select').value = selection.value;
             closeSSE();
-            await fetchInitialRunState(runId);
+            await fetchInitialRunState(selection.value);
+            renderRunSelect();
             renderRunOverview(dashboardState.runs);
             initSSE();
         }
@@ -762,8 +1049,16 @@
 
         function renderRunSelect() {
             const select = document.getElementById('run-select');
-            select.innerHTML = orderRunsForOverview(dashboardState.runs).map(run => '<option value="' + escapeAttr(run.run_id) + '">' + escapeHtml(run.display_name || run.run_id) + '</option>').join('');
-            if (dashboardState.currentRunId) select.value = dashboardState.currentRunId;
+            const runOptions = orderRunsForOverview(dashboardState.runs)
+                .map(run => '<option value="run:' + escapeAttr(run.run_id) + '">' + escapeHtml(run.display_name || run.run_id) + '</option>')
+                .join('');
+            const backupOptions = (dashboardState.backups || [])
+                .map(backup => '<option value="backup:' + escapeAttr(backup.backup_id) + '">' + escapeHtml('[Backup] ' + (backup.display_name || backup.source_run_id || backup.backup_id) + ' / ' + formatBackupTimestamp(backup.timestamp)) + '</option>')
+                .join('');
+            select.innerHTML =
+                (runOptions ? '<optgroup label="Runs">' + runOptions + '</optgroup>' : '') +
+                (backupOptions ? '<optgroup label="Backups">' + backupOptions + '</optgroup>' : '');
+            if (dashboardState.currentSelectionValue) select.value = dashboardState.currentSelectionValue;
         }
 
         function renderRunDetail(state) {
@@ -810,16 +1105,17 @@
 
         function renderBackupPanel(runState) {
             const root = document.getElementById('backup-content');
-            const backup = latestBackupForRun(runState.run_id, true);
+            const backup = dashboardState.currentSelectionType === 'backup'
+                ? dashboardState.backups.find(item => item.backup_id === runState.run_id)
+                : latestBackupForRun(runState.run_id, true);
             if (!backup) {
                 root.className = 'empty';
                 root.textContent = t('backup.none');
                 return;
             }
-            const typeLabel = backup.backup_type === 'auto' ? t('backup.auto') : t('backup.manual');
             root.className = 'backup-grid';
             root.innerHTML =
-                backupItem(t('backup.type'), typeLabel) +
+                backupItem(t('backup.type'), backupTypeLabel(backup.backup_type)) +
                 backupItem(t('backup.timestamp'), formatBackupTimestamp(backup.timestamp)) +
                 backupItem(t('backup.status'), statusLabel(backup.status || 'idle')) +
                 backupItem(t('backup.completed'), (backup.completed_algorithms || 0) + ' / ' + (backup.total_algorithms || 0)) +
@@ -827,12 +1123,126 @@
                 backupItem(t('backup.files') + ' figures', (backup.figure_files || []).length);
         }
 
+        function renderGlobalBackups(backups) {
+            const root = document.getElementById('global-backups');
+            if (!root) return;
+            backups = backups || [];
+            if (!backups.length) {
+                root.innerHTML = '<div class="empty">' + escapeHtml(t('backup.noGlobal')) + '</div>';
+                return;
+            }
+            root.innerHTML = '<table><thead><tr>' +
+                '<th>' + escapeHtml(t('backup.type')) + '</th>' +
+                '<th>source_run_id</th>' +
+                '<th>' + escapeHtml(t('backup.timestamp')) + '</th>' +
+                '<th>' + escapeHtml(t('backup.status')) + '</th>' +
+                '<th>' + escapeHtml(t('backup.completed')) + '</th>' +
+                '<th>' + escapeHtml(t('backup.files')) + '</th>' +
+                '<th>' + escapeHtml(t('backup.view')) + '</th>' +
+                '</tr></thead><tbody>' +
+                backups.slice(0, 20).map(backup => '<tr>' +
+                    '<td>' + escapeHtml(backupTypeLabel(backup.backup_type)) + '</td>' +
+                    '<td>' + escapeHtml(backup.source_run_id || '-') + '</td>' +
+                    '<td>' + escapeHtml(formatBackupTimestamp(backup.timestamp)) + '</td>' +
+                    '<td>' + escapeHtml(backup.status || '-') + '</td>' +
+                    '<td>' + escapeHtml((backup.completed_algorithms || 0) + ' / ' + (backup.total_algorithms || 0)) + '</td>' +
+                    '<td>' + escapeHtml(((backup.benchmark_files || []).length) + ' benchmark / ' + ((backup.figure_files || []).length) + ' figures') + '</td>' +
+                    '<td><button class="mini-btn" onclick="selectRun(\'backup:' + escapeAttr(backup.backup_id) + '\')">' + escapeHtml(t('backup.view')) + '</button></td>' +
+                    '</tr>').join('') +
+                '</tbody></table>';
+        }
+
+        function renderBackupDiagnostics(diagnostics) {
+            const root = document.getElementById('backup-diagnostics');
+            if (!root) return;
+            if (!diagnostics) {
+                root.innerHTML = '<div class="backup-item"><div class="value">-</div></div>';
+                return;
+            }
+            const roots = (diagnostics.scanned_roots || []).map(item =>
+                item.path + ' (' + (item.exists ? item.candidate_backups + ' candidates' : 'missing') + ')'
+            ).join('; ');
+            const archive = diagnostics.results_archive || {};
+            const notes = (diagnostics.notes || []).concat((diagnostics.matched_backups || 0) === 0 ? [t('backup.checkPaths')] : []);
+            root.innerHTML =
+                backupItem(t('backup.scannedRoots'), roots || '-') +
+                backupItem(t('backup.resultsArchive'), (archive.exists ? 'exists' : 'missing') + ' / ' + (archive.benchmark_archives || 0)) +
+                backupItem(t('backup.matched'), diagnostics.matched_backups || 0) +
+                (notes.length ? '<div class="diagnostics-note">' + escapeHtml(notes.join(' | ')) + '</div>' : '');
+        }
+
+        function renderDeleteTargets(targets) {
+            const root = document.getElementById('delete-targets');
+            if (!root) return;
+            targets = targets || [];
+            if (!targets.length) {
+                root.innerHTML = '<div class="empty">' + escapeHtml(t('delete.noTargets')) + '</div>';
+                return;
+            }
+            root.innerHTML = '<table><thead><tr>' +
+                '<th>' + escapeHtml(t('delete.targetId')) + '</th>' +
+                '<th>' + escapeHtml(t('delete.targetType')) + '</th>' +
+                '<th>' + escapeHtml(t('delete.displayName')) + '</th>' +
+                '<th>' + escapeHtml(t('delete.paths')) + '</th>' +
+                '<th>' + escapeHtml(t('delete.preview')) + '</th>' +
+                '</tr></thead><tbody>' +
+                targets.map(target => '<tr>' +
+                    '<td>' + escapeHtml(target.target_id) + (target.blocked_reason ? '<div class="muted">' + escapeHtml(target.blocked_reason) + '</div>' : '') + '</td>' +
+                    '<td>' + escapeHtml(target.target_type) + '</td>' +
+                    '<td>' + escapeHtml(target.display_name || '-') + '</td>' +
+                    '<td>' + escapeHtml((target.paths || []).length) + '</td>' +
+                    '<td><button class="mini-btn" onclick="previewDeleteTarget(\'' + escapeAttr(target.target_id) + '\')">' + escapeHtml(t('delete.previewButton')) + ' ' + escapeHtml(t('delete.deleteSourceFiles')) + '</button></td>' +
+                    '</tr>').join('') +
+                '</tbody></table>';
+        }
+
+        function renderDeletePreview(preview) {
+            const root = document.getElementById('delete-preview');
+            const button = document.getElementById('delete-confirm-button');
+            if (!root || !button) return;
+            if (!preview) {
+                root.className = 'delete-preview empty';
+                root.textContent = t('delete.noPreview');
+                button.disabled = true;
+                return;
+            }
+            root.className = 'delete-preview';
+            const paths = preview.paths || [];
+            root.innerHTML =
+                '<div><strong>' + escapeHtml(preview.target_id) + '</strong> / ' + escapeHtml(preview.target_type) + '</div>' +
+                (preview.blocked ? '<div class="diagnostics-note">' + escapeHtml(t('delete.blocked') + ': ' + (preview.blocked_reason || '-')) + '</div>' : '') +
+                '<div class="run-grid" style="margin-top:8px;">' +
+                '<span>' + escapeHtml(t('delete.totalFiles')) + '</span><span>' + escapeHtml(preview.total_files || 0) + '</span>' +
+                '<span>' + escapeHtml(t('delete.totalDirs')) + '</span><span>' + escapeHtml(preview.total_dirs || 0) + '</span>' +
+                '<span>' + escapeHtml(t('delete.totalBytes')) + '</span><span>' + escapeHtml(formatBytes(preview.total_bytes || 0)) + '</span>' +
+                '</div>' +
+                '<ul class="delete-path-list">' + paths.map(path => '<li>' + escapeHtml(path) + '</li>').join('') + '</ul>';
+            updateDeleteConfirmButton();
+        }
+
+        function updateDeleteConfirmButton() {
+            const preview = dashboardState.pendingDeletePreview;
+            const input = document.getElementById('delete-confirm-input');
+            const button = document.getElementById('delete-confirm-button');
+            if (!button || !input || !preview || preview.blocked) {
+                if (button) button.disabled = true;
+                return;
+            }
+            button.disabled = input.value.trim() !== preview.target_id;
+        }
+
         function backupItem(label, value) {
             return '<div class="backup-item"><div class="label">' + escapeHtml(label) + '</div><div class="value">' + escapeHtml(value) + '</div></div>';
         }
 
+        function backupTypeLabel(type) {
+            if (type === 'auto') return t('backup.auto');
+            if (type === 'archive') return t('backup.archive');
+            return t('backup.manual');
+        }
+
         function latestBackupForRun(runId, preferCurrent) {
-            const backups = preferCurrent && dashboardState.currentRunId === runId
+            const backups = preferCurrent && dashboardState.currentSelectionType === 'run' && dashboardState.currentRunId === runId
                 ? dashboardState.currentRunBackups
                 : dashboardState.backups.filter(backup => backup.source_run_id === runId);
             return backups && backups.length ? backups[0] : null;
@@ -912,7 +1322,10 @@
             title.textContent = runId + ' / ' + algorithm + ' / ' + stream;
             win.dataset.loadedKey = runId + ':' + algorithm + ':' + stream;
             win.textContent = t('artifact.loading');
-            const payload = await apiGetJson('/api/runs/' + encodeURIComponent(runId) + '/logs/' + encodeURIComponent(algorithm) + '/' + encodeURIComponent(stream));
+            const logBase = dashboardState.currentSelectionType === 'backup'
+                ? '/api/backups/' + encodeURIComponent(runId) + '/logs/'
+                : '/api/runs/' + encodeURIComponent(runId) + '/logs/';
+            const payload = await apiGetJson(logBase + encodeURIComponent(algorithm) + '/' + encodeURIComponent(stream));
             win.textContent = payload.exists ? String(payload.text || '').replace(/\r/g, '\n') : t('artifact.notFound', { path: payload.path || '' });
         }
 
@@ -953,6 +1366,10 @@
         async function refreshBenchmarkCharts() {
             const runId = dashboardState.currentRunId;
             if (!runId) return;
+            if (dashboardState.currentSelectionType === 'backup') {
+                updateCharts(dashboardState.currentRunState);
+                return;
+            }
             const status = document.getElementById('benchmark-empty');
             status.textContent = t('chart.loadingBenchmark');
             const payload = await apiGetJson('/api/runs/' + encodeURIComponent(runId) + '/benchmark');
@@ -1091,6 +1508,11 @@
             const runId = dashboardState.currentRunId;
             if (!runId) return;
             const status = document.getElementById('connection-status');
+            if (dashboardState.currentSelectionType === 'backup') {
+                dashboardState.sse.connected = false;
+                status.style.display = 'none';
+                return;
+            }
             const es = new EventSource('/api/runs/' + encodeURIComponent(runId) + '/events');
             dashboardState.sse.eventSource = es;
             es.onopen = function() {
@@ -1146,6 +1568,14 @@
         function formatNumber(value) {
             if (value === null || value === undefined || value === '') return '-';
             return Number(value).toLocaleString();
+        }
+
+        function formatBytes(value) {
+            const bytes = Number(value) || 0;
+            if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+            if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return bytes + ' B';
         }
 
         function fmtVal(value, decimals) {
@@ -1217,8 +1647,9 @@
             document.getElementById('log-autoscroll-toggle').addEventListener('change', event => {
                 dashboardState.filters.autoScroll = event.target.checked;
             });
+            document.getElementById('delete-confirm-input').addEventListener('input', updateDeleteConfirmButton);
             await loadRuns();
-            await fetchInitialRunState(dashboardState.currentRunId);
+            await fetchInitialRunState(dashboardState.currentSelectionValue);
             initSSE();
         });
     </script>

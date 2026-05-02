@@ -1,14 +1,19 @@
 """Tests for paper2 experiment run discovery."""
 
 import json
+import os
+from datetime import datetime
 
 from dashboard.config import DashboardConfig
 from dashboard.run_discovery import (
     default_experiment_placeholders,
+    discover_archive_only_backups,
     discover_experiment_backups,
+    discover_experiment_backups_from_roots,
     discover_experiment_runs,
     discover_runs,
     enrich_backup_figures,
+    infer_backup_metadata_from_dir,
 )
 
 
@@ -230,3 +235,84 @@ def test_enrich_backup_figures_reads_top_level_files_only(tmp_path):
 
     assert enriched[0].figures_archive_dir == str(archive_dir)
     assert enriched[0].figure_files == ["latency.svg", "reward.png"]
+
+
+def test_infer_backup_metadata_accepts_vscode_backup_variants(tmp_path):
+    cases = [
+        ("paper2_full_17_vscode_backup_20260501_150000", "backup", "20260501_150000"),
+        ("paper2_full_17_vscode_auto_20260501_150000", "auto", "20260501_150000"),
+        ("paper2_full_17_vscode_backup_2026-05-01_15-00-00", "backup", "20260501_150000"),
+        ("paper2_full_17_vscode_auto_2026-05-01_15-00-00", "auto", "20260501_150000"),
+        ("paper2_full_17_vscode_backup_20260501-150000", "backup", "20260501_150000"),
+    ]
+    for name, backup_type, timestamp in cases:
+        path = tmp_path / name
+        path.mkdir()
+        assert infer_backup_metadata_from_dir(path) == ("paper2_full_17_vscode", backup_type, timestamp)
+
+    vscode_backup = tmp_path / "Backup Full 17 Data"
+    vscode_backup.mkdir()
+    (vscode_backup / "run.json").write_text(json.dumps({"run_id": "paper2_full_17_vscode"}), encoding="utf-8")
+    parsed = infer_backup_metadata_from_dir(vscode_backup)
+    assert parsed is not None
+    assert parsed[0] == "paper2_full_17_vscode"
+    assert parsed[1] == "backup"
+
+
+def test_backup_without_timestamp_uses_directory_mtime(tmp_path):
+    backup_dir = tmp_path / "paper2_full_17_vscode_backup"
+    backup_dir.mkdir()
+    expected_time = datetime(2026, 5, 1, 15, 0, 0).timestamp()
+    os.utime(backup_dir, (expected_time, expected_time))
+
+    assert infer_backup_metadata_from_dir(backup_dir) == (
+        "paper2_full_17_vscode",
+        "backup",
+        "20260501_150000",
+    )
+
+
+def test_discover_experiment_backups_from_multiple_roots(tmp_path):
+    experiments_dir = tmp_path / "experiments"
+    backup_root = tmp_path / "vscode-backups"
+    _write_backup_fixture(experiments_dir / "paper2_full_17_vscode_backup_20260501_150000")
+    _write_backup_fixture(backup_root / "paper2_full_17_vscode_backup_20260501_160000")
+
+    backups = discover_experiment_backups_from_roots([experiments_dir, backup_root], tmp_path / "results")
+
+    assert [backup.timestamp for backup in backups] == ["20260501_160000", "20260501_150000"]
+    assert {backup.experiment_dir for backup in backups} == {
+        str(experiments_dir / "paper2_full_17_vscode_backup_20260501_150000"),
+        str(backup_root / "paper2_full_17_vscode_backup_20260501_160000"),
+    }
+
+
+def test_discover_archive_only_backups_from_results_archive(tmp_path):
+    results_dir = tmp_path / "results"
+    archive_dir = results_dir / "archive" / "20260501_150000"
+    archive_dir.mkdir(parents=True)
+    (archive_dir / "benchmark_paper2_full_17_vscode.json").write_text("[]", encoding="utf-8")
+    (archive_dir / "benchmark.json").write_text("[]", encoding="utf-8")
+
+    backups = discover_archive_only_backups(results_dir)
+
+    assert len(backups) == 1
+    backup = backups[0]
+    assert backup.backup_type == "archive"
+    assert backup.source_run_id == "paper2_full_17_vscode"
+    assert backup.backup_id == "paper2_full_17_vscode_archive_20260501_150000"
+    assert backup.experiment_dir == ""
+    assert backup.benchmark_archive_dir == str(archive_dir)
+    assert backup.benchmark_files == ["benchmark.json", "benchmark_paper2_full_17_vscode.json"]
+
+
+def _write_backup_fixture(backup_dir, source_run_id="paper2_full_17_vscode"):
+    backup_dir.mkdir(parents=True)
+    (backup_dir / "run.json").write_text(
+        json.dumps({"run_id": source_run_id, "name": source_run_id, "algorithms": [{"name": "GRPO"}]}),
+        encoding="utf-8",
+    )
+    (backup_dir / "state.json").write_text(
+        json.dumps({"run_id": source_run_id, "status": "completed", "records": [{"name": "GRPO"}]}),
+        encoding="utf-8",
+    )

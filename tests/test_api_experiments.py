@@ -365,6 +365,177 @@ def test_list_run_backups_filters_by_source_run_id(tmp_path):
     ]
 
 
+def test_list_backups_uses_backup_scan_dirs(tmp_path):
+    experiments_dir = tmp_path / "experiments"
+    backup_root = tmp_path / "vscode-backups"
+    _write_backup_fixture(
+        backup_root / "paper2_full_17_vscode_backup_20260501_150000",
+        source_run_id="paper2_full_17_vscode",
+    )
+
+    with _api_server(
+        DashboardConfig(
+            experiments_dir=experiments_dir,
+            results_dir=tmp_path / "results",
+            backup_scan_dirs=[backup_root],
+            logs_dir=tmp_path / "logs",
+            scan_interval_sec=60.0,
+        )
+    ) as base_url:
+        payload = _get_json(base_url, "/api/backups")
+
+    assert [backup["backup_id"] for backup in payload["backups"]] == [
+        "paper2_full_17_vscode_backup_20260501_150000"
+    ]
+
+
+def test_list_backups_includes_archive_only_snapshots(tmp_path):
+    results_dir = tmp_path / "results"
+    archive_dir = results_dir / "archive" / "20260501_150000"
+    archive_dir.mkdir(parents=True)
+    (archive_dir / "benchmark_paper2_full_17_vscode.json").write_text("[]", encoding="utf-8")
+
+    with _api_server(
+        DashboardConfig(
+            experiments_dir=tmp_path / "experiments",
+            results_dir=results_dir,
+            logs_dir=tmp_path / "logs",
+            scan_interval_sec=60.0,
+        )
+    ) as base_url:
+        payload = _get_json(base_url, "/api/backups")
+
+    assert len(payload["backups"]) == 1
+    assert payload["backups"][0]["backup_type"] == "archive"
+    assert payload["backups"][0]["benchmark_archive_dir"] == str(archive_dir)
+
+
+def test_backup_diagnostics_reports_scan_roots_and_archive(tmp_path):
+    experiments_dir = tmp_path / "experiments"
+    backup_root = tmp_path / "vscode-backups"
+    results_dir = tmp_path / "results"
+    _write_backup_fixture(backup_root / "paper2_full_17_vscode_backup_20260501_150000")
+    archive_dir = results_dir / "archive" / "20260501_160000"
+    archive_dir.mkdir(parents=True)
+    (archive_dir / "benchmark_paper2_full_17_vscode.json").write_text("[]", encoding="utf-8")
+
+    with _api_server(
+        DashboardConfig(
+            experiments_dir=experiments_dir,
+            results_dir=results_dir,
+            backup_scan_dirs=[backup_root],
+            logs_dir=tmp_path / "logs",
+            scan_interval_sec=60.0,
+        )
+    ) as base_url:
+        payload = _get_json(base_url, "/api/backups/diagnostics")
+
+    assert payload["experiments_dir"] == str(experiments_dir)
+    assert payload["backup_scan_dirs"] == [str(backup_root)]
+    assert [root["path"] for root in payload["scanned_roots"]] == [str(experiments_dir), str(backup_root)]
+    assert payload["scanned_roots"][1]["candidate_backups"] == 1
+    assert payload["results_archive"]["path"] == str(results_dir / "archive")
+    assert payload["results_archive"]["benchmark_archives"] == 1
+    assert payload["matched_backups"] == 2
+    assert payload["notes"] == []
+
+
+def test_get_backup_detail_returns_displayable_run_state(tmp_path):
+    experiments_dir = tmp_path / "experiments"
+    backup_dir = experiments_dir / "paper2_full_17_vscode_backup_20260501_150000"
+    artifact_dir = backup_dir / "artifacts" / "GRPO"
+    artifact_dir.mkdir(parents=True)
+    (backup_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "run_id": "paper2_full_17_vscode",
+                "name": "Full 17",
+                "algorithms": [{"name": "GRPO"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backup_dir / "state.json").write_text(
+        json.dumps(
+            {
+                "run_id": "paper2_full_17_vscode",
+                "status": "completed",
+                "records": [{"name": "GRPO", "status": "completed"}],
+                "completed_algorithms": ["GRPO"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (artifact_dir / "result.json").write_text(
+        json.dumps({"algorithm": "GRPO", "final_eval": {"eval/reward_mean": 5.0}}),
+        encoding="utf-8",
+    )
+    (artifact_dir / "stdout.log").write_text("backup stdout", encoding="utf-8")
+
+    with _api_server(
+        DashboardConfig(
+            experiments_dir=experiments_dir,
+            results_dir=tmp_path / "results",
+            logs_dir=tmp_path / "logs",
+            scan_interval_sec=60.0,
+        )
+    ) as base_url:
+        runs_payload = _get_json(base_url, "/api/runs")
+        payload = _get_json(base_url, "/api/backups/paper2_full_17_vscode_backup_20260501_150000")
+        log_payload = _get_json(
+            base_url,
+            "/api/backups/paper2_full_17_vscode_backup_20260501_150000/logs/GRPO/stdout",
+        )
+
+    assert "paper2_full_17_vscode_backup_20260501_150000" not in {
+        run["run_id"] for run in runs_payload["runs"]
+    }
+    assert payload["run_id"] == "paper2_full_17_vscode_backup_20260501_150000"
+    assert payload["source_type"] == "backup"
+    assert payload["display_name"] == "Full 17"
+    assert payload["records"][0]["stdout_path"].replace("\\", "/").endswith("artifacts/GRPO/stdout.log")
+    assert payload["results"][0]["algorithm"] == "GRPO"
+    assert payload["results"][0]["reward"] == 5.0
+    assert log_payload["run_id"] == "paper2_full_17_vscode_backup_20260501_150000"
+    assert log_payload["exists"] is True
+    assert log_payload["text"] == "backup stdout"
+
+
+def test_get_archive_only_backup_detail_uses_benchmark_archive(tmp_path):
+    results_dir = tmp_path / "results"
+    archive_dir = results_dir / "archive" / "20260501_150000"
+    archive_dir.mkdir(parents=True)
+    (archive_dir / "benchmark_paper2_full_17_vscode.json").write_text(
+        json.dumps(
+            [
+                {
+                    "algorithm": "GRPO",
+                    "final_reward_mean": 2.5,
+                    "train_time_seconds_mean": 12.0,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with _api_server(
+        DashboardConfig(
+            experiments_dir=tmp_path / "experiments",
+            results_dir=results_dir,
+            logs_dir=tmp_path / "logs",
+            scan_interval_sec=60.0,
+        )
+    ) as base_url:
+        payload = _get_json(base_url, "/api/backups/paper2_full_17_vscode_archive_20260501_150000")
+
+    assert payload["run_id"] == "paper2_full_17_vscode_archive_20260501_150000"
+    assert payload["source_type"] == "archive"
+    assert payload["status"] == "finished"
+    assert payload["results"][0]["algorithm"] == "GRPO"
+    assert payload["results"][0]["reward"] == 2.5
+    assert payload["records"] == []
+
+
 @contextmanager
 def _api_server(config: DashboardConfig):
     port = _free_port()

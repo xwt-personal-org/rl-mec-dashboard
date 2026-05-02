@@ -1,6 +1,6 @@
 """Configuration tests for paper2 experiment paths."""
 
-from dashboard.config import benchmark_export_path, create_default_config, parse_cli_args
+from dashboard.config import backup_scan_roots, benchmark_export_path, create_default_config, parse_cli_args
 
 
 def test_default_config_uses_experiments_dir():
@@ -61,3 +61,36 @@ def test_default_config_uses_figures_dir():
     cfg = create_default_config()
 
     assert cfg.figures_dir.name == "figures"
+
+
+def test_backup_scan_dirs_can_be_repeated():
+    cfg = parse_cli_args(
+        [
+            "--backup-scan-dir",
+            "C:/paper2/backups",
+            "--backup-scan-dir",
+            "D:/paper2/vscode-backups",
+        ]
+    )
+
+    assert [str(path).replace("\\", "/") for path in cfg.backup_scan_dirs] == [
+        "C:/paper2/backups",
+        "D:/paper2/vscode-backups",
+    ]
+
+
+def test_backup_scan_roots_deduplicates_experiments_dir(tmp_path):
+    experiments_dir = tmp_path / "experiments"
+    backup_dir = tmp_path / "backups"
+    cfg = parse_cli_args(
+        [
+            "--experiments-dir",
+            str(experiments_dir),
+            "--backup-scan-dir",
+            str(experiments_dir),
+            "--backup-scan-dir",
+            str(backup_dir),
+        ]
+    )
+
+    assert backup_scan_roots(cfg) == [experiments_dir, backup_dir]

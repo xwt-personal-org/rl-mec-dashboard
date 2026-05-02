@@ -1,5 +1,11 @@
 # Windows Start Menu Launcher
 
+## Backup and Danger Zone notes
+
+`start_dashboard.bat` now passes `--figures-dir` and `--backup-scan-dir` so backups created outside `experiments/`, including VSCode backup folders under the paper2 workspace, can appear in the global Backups panel.
+
+Danger Zone deletion is a source-file deletion workflow. It previews exact paths first, requires an exact `target_id` confirmation, refuses running experiments, and cannot restore files after deletion.
+
 ## 目标
 
 Windows Start Menu Launcher 只简化 dashboard server 的启动入口。它复用现有 `start_dashboard.vbs` 和 `start_dashboard.bat`，不替代 dashboard server 逻辑。

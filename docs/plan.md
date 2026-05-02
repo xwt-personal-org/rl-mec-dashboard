@@ -1,21 +1,27 @@
-# 开发计划：rl-mec-dashboard 对齐 paper2 Patch 10 实验备份与 Fresh 自动保护
+# 开发计划：rl-mec-dashboard 备份可见性修复与本地实验数据删除
 
 ## 元信息
 
 - 项目：`rl-mec-dashboard`
 - 仓库：`w2030298-art/rl-mec-dashboard`
-- 版本：v2
+- 版本：v3.2
 - 计划类型：已有项目迁移改造计划 — Iter merge-back
 - 当前技术栈：Python 3 + FastAPI + Uvicorn；单文件原生 HTML/CSS/JavaScript + Chart.js；SSE；pytest。
-- 当前架构基线：后端已模块化为 `dashboard/` 包，并已支持 `paper2` 新实验状态机：`experiments/<run_id>/run.json`、`state.json`、`artifacts/<ALGORITHM>/{stdout.log,stderr.log,result.json}`、`results/benchmark_<run_id>.json`。
-- 本次变更来源：`paper2` Patch 10 — 实验数据备份与 Fresh 自动保护。
-- 总模块数：10
-- 预计步骤总数：48
-- 已完成步骤数：48
-- 待执行步骤数：0
-- 建议开发顺序：模块 10 Step 1 → Step 2 → Step 3 → Step 4 → Step 5 → Step 6
+- 当前架构基线：后端已模块化为 `dashboard/` 包，已支持 `paper2` 实验状态机、artifact 日志、benchmark export、Patch 10 backup/archive metadata 展示。
+- 本次变更来源：用户手动测试反馈
+  - 当前训练数据显示正常。
+  - VSCode `Backup Full 17 Data` 生成的备份数据在看板中不可见。
+  - 用户希望在看板中删除不需要的本地实验源文件。
+- 总模块数：12
+- 已完成模块：1-10
+- 新增模块：11-12
+- 历史完成步骤数：48
+- 新增步骤数：14
+- 预计总步骤数：62
+- 当前待执行步骤数：0
+- 建议开发顺序：模块 11 Step 1-6 → 模块 12 Step 1-8
 - 创建日期：2026-04-28
-- 最后更新：2026-05-01
+- 最后更新：2026-05-02
 
 ### 变更记录
 
@@ -23,34 +29,43 @@
 |---|---|---|
 | v1 | 2026-04-28 | 初始完成 `rl-mec-dashboard` 对 `paper2` 新实验编排架构的迁移：实验状态、artifact 日志、benchmark export、API、前端、测试与文档。 |
 | v2 | 2026-05-01 | 适配 `paper2` Patch 10 的 backup/archive 目录语义，避免 dashboard 将备份实验目录误识别为 active run，并新增只读备份归档展示能力。 |
+| v3 | 2026-05-01 | 修复实际 VSCode backup 产物看板不可见问题，新增 backup 发现诊断与 archive-only 发现；新增受控本地源文件删除能力。 |
+| v3.1 | 2026-05-02 | 根据用户反馈整理前端视觉层级与模块组织：监控主线前置，备份/算法/结果/日志/Danger Zone 分层展示。 |
+| v3.2 | 2026-05-02 | 整理本地验证环境：关闭 8093 测试服务，恢复 8088 正式服务，补齐项目 venv 的 Playwright fallback。 |
 
 ## Status
 
-> 本区块是项目的实时状态快照。任何 agent（Web 或 Codex）读到此区块即可恢复完整上下文。
+### Codex Status Update 2026-05-02
 
-- 当前阶段：模块 10 完成，等待 review
-- 整体进度：48 / 48 步骤完成
+- 当前阶段：模块 11-12、前端视觉整理与本地验证环境整理完成，等待 review
+- 整体进度：62 / 62 步骤完成
 - 状态：NEEDS_REVIEW
 - 阻塞项：无
-- 当前风险：模块 10 中 Step 2、Step 3、Step 5、Step 6 为 scope:review，需人工确认 active discovery 排除逻辑、backup metadata discovery、只读 API 与前端只读边界。
+- Last Iteration Summary：模块 11 与模块 12 已完成，并按用户反馈补齐两个行为：backup 现在可作为看板选项进入详情展示，不只出现在备份列表；删除 target 扩展为 dashboard 已识别的本地源文件，包括 active run、backup、archive-only、structured run、legacy log、benchmark export 与全局 `benchmark.json`。前端视觉与信息架构已整理，将运行选择、核心指标、进度和图表前置，将日志合并到底部，将 Danger Zone 下移为低频 destructive 操作区。本轮补齐本地验证环境，关闭 8093 测试服务，确认 8088 正常监听，并安装验证 Playwright fallback。`/api/runs` 仍不混入 backup/archive，删除 API 仍只接受 discovery 产生的 `target_id`。
+
+> 本区块是项目的实时状态快照。任何 agent（Web 或 Codex）读到此区块即可恢复完整上下文。
 
 ### Last Iteration Summary
 
-v2 执行结果：已完成模块 10。dashboard 现在识别 `experiments/<run_id>_(backup|auto)_<timestamp>/` 为历史备份并从 active run discovery 排除，新增 `BackupSnapshot`、backup/archive discovery、figures archive enrichment、只读 `/api/backups` 与 `/api/runs/{run_id}/backups`，前端展示当前 run 的 latest backup 信息且不提供 restore/delete/fresh 写操作。全量验证 `python -m pytest -v` 通过。
+v2 执行结果：模块 10 已完成并通过测试，新增 `BackupSnapshot`、backup/auto active discovery 排除、backup discovery、figures archive enrichment、只读 `/api/backups` 与 `/api/runs/{run_id}/backups`。但用户手动测试发现 VSCode `Backup Full 17 Data` 生成的数据在页面不可见。当前实现只扫描 `experiments_dir` 根目录下严格命名为 `<run_id>_(backup|auto)_YYYYMMDD_HHMMSS` 的目录，并且前端只围绕当前 run 展示 latest backup，缺少全局备份视图、路径诊断、archive-only 结果发现和非标准备份路径兼容。
 
 ### Pending Decisions
 
-无。dashboard 本轮仍保持只读，不实现 fresh、delete、restore、start、stop 训练操作。
+无。删除功能本轮确定加入，但必须以两段式确认、路径白名单和运行中拒删为硬约束。
 
-## 关键迁移原则
+## 关键设计原则
 
-1. `experiments/<run_id>/state.json` 仍是 active run 的唯一实时状态源。
-2. `experiments/<run_id>_(backup|auto)_<timestamp>/` 是历史备份，不是 active run。
-3. 备份目录可展示为 archive metadata，但不得覆盖同名 active run 的 `RunState`。
-4. `results/archive/<timestamp>/benchmark*.json` 是历史 benchmark 快照，不得替代 `results/benchmark_<run_id>.json` 的 active export。
-5. `results/benchmark.json` 仍只是 latest alias，不得用于判断当前实验状态。
-6. dashboard 继续保持只读：不删除、不恢复、不启动、不 fresh。
-7. legacy fallback 保留；新 Patch 10 规则仅作用于 `experiments/` 和 `results/archive/` 发现逻辑。
+1. Active training monitor 主链路已可用，不重做模块 1-9。
+2. backup 可见性修复不得把 backup 目录重新放回 `/api/runs` active list。
+3. `results/archive/<timestamp>/benchmark*.json` 即使没有匹配的 backup experiment directory，也必须可在 backup/archive 页面中被发现。
+4. 删除功能删除的是源文件，不是仅隐藏记录。
+5. 删除 API 不接受任意文件系统路径，只接受后端 discovery 已返回的 `target_id`。
+6. 删除 active run 前必须确认该 run 非 running、无 `process.json`。
+7. 删除 backup/archive 前必须展示将删除哪些目录/文件。
+8. 不删除 `.git`、项目源码、`docs/`、`dashboard/`、`tests/`、任意父目录。
+9. Windows 路径必须兼容。
+10. 所有 destructive endpoint 必须有 preview endpoint 与 explicit confirm token。
+11. 用户反馈补充：backup 必须能作为 dashboard 可选数据源展示；删除功能覆盖所有 dashboard 已识别的本地源文件，但仍不允许前端/API 传任意路径。
 
 ## 固定 run id
 
@@ -59,727 +74,596 @@ Full 17 run_id: paper2_full_17_vscode
 Quick run_id:   vscode_quick
 ```
 
-Full 17 算法顺序必须固定为：
-
-```text
-GRPO, PPO, SAC, DDQN, DDPG, TD3, A3C, TRPO, SimPO, MAPPO, QMIX, COMA, IPPO, VDN, MADDPG, IQL, MATD3
-```
-
-Quick 算法顺序必须固定为：
-
-```text
-GRPO, PPO, SAC
-```
-
 ---
 
-## 模块 1：配置入口与路径约定迁移
+# 历史模块状态
 
-### 概述
+## 模块 1-9：paper2 新实验状态机适配
 
-- 职责：把 dashboard 的运行配置从旧 `runs_dir` / `logs_dir` / `benchmark_json` 模式扩展为新 `experiments_dir` + `results_dir` 模式，同时保留旧参数兼容。
-- 前置依赖：无
-- 预计步骤数：5
 - 当前状态：已完成
+- 步骤范围：Step 1-42
+- 本轮要求：不得重写；只允许因模块 11/12 测试需要做最小兼容修改。
 
-### Step 1：扩展 `DashboardConfig`
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/config.py` 已新增 `experiments_dir`、`results_dir`、`default_run_id`、`quick_run_id`、`log_tail_bytes`、`json_retry_keep_last`。
-- 验证：`python -m pytest tests/test_config.py -v`
+## 模块 10：Patch 10 备份归档适配
 
-### Step 2：更新 CLI 参数解析
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/config.py::parse_cli_args()` 已支持 `--experiments-dir`、`--results-dir`、`--default-run-id`、`--quick-run-id`、`--log-tail-bytes`。
-- 验证：`python serve_dashboard.py --help`
-
-### Step 3：更新 `serve_dashboard.py`
-- **scope: auto**
-- **[DONE]**
-- 操作：`serve_dashboard.py` 保持薄入口，只调用 `parse_cli_args()` 与 `create_app(config)`。
-- 验证：`python serve_dashboard.py --help`
-
-### Step 4：定义固定结果路径 helper
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/config.py::benchmark_export_path(config, run_id)` 已返回 `config.results_dir / f"benchmark_{run_id}.json"`。
-- 验证：`python -m pytest tests/test_config.py::test_benchmark_export_path -v`
-
-### Step 5：添加配置测试
-- **scope: auto**
-- **[DONE]**
-- 操作：`tests/test_config.py` 已覆盖默认配置、新 CLI 参数、legacy runs_dir 兼容、benchmark export 路径。
-- 验证：`python -m pytest tests/test_config.py -v`
+- 当前状态：已完成但手动测试未通过
+- 步骤范围：Step 43-48
+- 本轮要求：保留已有实现，作为模块 11 的基础；不要回滚。
+- 已知问题：实际 VSCode backup 数据未在看板显示。
 
 ---
 
-## 模块 2：领域模型对齐 paper2 实验状态机
-
-### 概述
-
-- 职责：把后端内部 DTO 从旧 run/progress 模型扩展为 experiment/state/algorithm record 模型，并兼容旧 API 字段。
-- 前置依赖：模块 1
-- 预计步骤数：5
-- 当前状态：已完成
-
-### Step 1：扩展状态枚举
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/models.py` 已新增 `ExperimentStatus`、`AlgorithmStatus`、`SourceType`，并扩展 `RunStatus`。
-- 验证：`python -c "from dashboard.models import ExperimentStatus, AlgorithmStatus"`
-
-### Step 2：新增算法记录模型
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/models.py::AlgorithmRunRecord` 已支持每算法状态、attempts、artifact 路径、错误与 `result_missing`。
-- 验证：`python -c "from dashboard.models import AlgorithmRunRecord; r=AlgorithmRunRecord(name='GRPO'); assert r.status == 'pending'"`
-
-### Step 3：新增实验清单与实验状态模型
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/models.py` 已新增 `AlgorithmSpec`、`ExperimentRunManifest`、`ExperimentStateSnapshot`。
-- 验证：`python -c "from dashboard.models import ExperimentRunManifest, ExperimentStateSnapshot"`
-
-### Step 4：扩展 `AlgorithmResult`
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/models.py::AlgorithmResult` 已新增 seed、device、train_timesteps、checkpoint_dir、result_path、final_eval。
-- 验证：`python -m pytest tests/test_experiment_reader.py::test_read_algorithm_result_maps_final_eval -v`
-
-### Step 5：扩展 `RunState`
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/models.py::RunState` 已新增 records、current_index、run/state/process/benchmark 路径、process marker 与 stale marker 字段。
-- 验证：`python -c "from dashboard.models import RunState; s=RunState(run_id='x'); assert isinstance(s.records, list)"`
-
----
-
-## 模块 3：新增 paper2 实验文件读取器
-
-### 概述
-
-- 职责：以只读、容错方式读取 `experiments/<run_id>/` 下的 `run.json`、`state.json`、`process.json`、artifact logs、单算法 `result.json`。
-- 前置依赖：模块 2
-- 预计步骤数：7
-- 当前状态：已完成
-
-### Step 1：创建 `dashboard/experiment_reader.py`
-- **scope: auto**
-- **[DONE]**
-- 操作：已创建 `dashboard/experiment_reader.py`，定义 `safe_read_json_file()`、`read_text_tail()`、`Paper2ExperimentReader`。
-- 验证：`python -c "from dashboard.experiment_reader import Paper2ExperimentReader, safe_read_json_file, read_text_tail"`
-
-### Step 2：实现原子写容错读取
-- **scope: auto**
-- **[DONE]**
-- 操作：`safe_read_json_file(path)` 已处理 missing、empty、invalid JSON 与读取异常。
-- 验证：`python -m pytest tests/test_experiment_reader.py::test_safe_read_json_file_handles_missing_empty_invalid -v`
-
-### Step 3：实现日志尾部读取
-- **scope: auto**
-- **[DONE]**
-- 操作：`read_text_tail(path, max_bytes)` 已支持大文件尾部读取与 UTF-8 replacement decode。
-- 验证：`python -m pytest tests/test_experiment_reader.py::test_read_text_tail_limits_large_log -v`
-
-### Step 4：实现 `Paper2ExperimentReader.__init__`
-- **scope: auto**
-- **[DONE]**
-- 操作：已定义 run/state/process/artifacts 路径 helper。
-- 验证：`python -m pytest tests/test_experiment_reader.py::test_reader_paths -v`
-
-### Step 5：实现 `read_run_manifest()`
-- **scope: auto**
-- **[DONE]**
-- 操作：已按 `run.json.algorithms` 顺序转换 `AlgorithmSpec`。
-- 验证：`python -m pytest tests/test_experiment_reader.py::test_read_run_manifest_preserves_algorithm_order -v`
-
-### Step 6：实现 `read_state_snapshot()`
-- **scope: auto**
-- **[DONE]**
-- 操作：已读取 `state.json.records`，并按规则生成 stdout/stderr/result 路径；running 记录忽略旧 error。
-- 验证：
-  ```bash
-  python -m pytest tests/test_experiment_reader.py::test_read_state_snapshot_generates_paths -v
-  python -m pytest tests/test_experiment_reader.py::test_running_record_ignores_stale_error -v
-  ```
-
-### Step 7：实现 `read_algorithm_result()`
-- **scope: auto**
-- **[DONE]**
-- 操作：已将 `final_eval` 常见指标映射到 `AlgorithmResult`，并保留原始 `final_eval`。
-- 验证：
-  ```bash
-  python -m pytest tests/test_experiment_reader.py::test_read_algorithm_result_maps_final_eval -v
-  python -m pytest tests/test_experiment_reader.py::test_completed_record_missing_result_is_reported -v
-  ```
-
----
-
-## 模块 4：实验发现与状态聚合改造
-
-### 概述
-
-- 职责：让 dashboard 优先发现 `experiments/<run_id>/`，并基于 `state.json` 合成 `RunSummary` 与 `RunState`。
-- 前置依赖：模块 1、2、3
-- 预计步骤数：7
-- 当前状态：已完成；本次 v2 在模块 10 中追加 Patch 10 backup/archive 适配，不直接重开模块 4。
-
-### Step 1：扩展 `RunDescriptor`
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/models.py::RunDescriptor` 已新增 experiment/run/state/process/benchmark/is_placeholder 字段。
-- 验证：`python -c "from dashboard.models import RunDescriptor; d=RunDescriptor(run_id='x', source_type='experiment_state'); assert d.source_type == 'experiment_state'"`
-
-### Step 2：实现 `discover_experiment_runs()`
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/run_discovery.py::discover_experiment_runs()` 已扫描 `experiments_dir` 下含 `run.json` 或 `state.json` 的目录。
-- 验证：`python -m pytest tests/test_run_discovery_experiments.py::test_discover_experiment_runs_finds_state_json -v`
-
-### Step 3：保留默认入口 placeholder
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/run_discovery.py::default_experiment_placeholders()` 已为 Full 17 与 Quick 生成默认入口。
-- 验证：`python -m pytest tests/test_run_discovery_experiments.py::test_default_placeholders_are_added_when_files_missing -v`
-
-### Step 4：更新 `discover_runs(config)` 优先级
-- **scope: auto**
-- **[DONE]**
-- 操作：`discover_runs(config)` 已按 experiment_state → legacy_structured → legacy_log → placeholder 合并。
-- 验证：`python -m pytest tests/test_run_discovery_experiments.py::test_experiment_descriptor_wins_over_legacy_same_run_id -v`
-
-### Step 5：实现 `RunStateAggregator.scan_experiment_once()`
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/state_aggregator.py::RunStateAggregator.scan_experiment_once()` 已从 manifest/snapshot 合成 `RunState`。
-- 验证：`python -m pytest tests/test_state_aggregator_experiments.py::test_scan_experiment_once_builds_run_state_from_state_json -v`
-
-### Step 6：读取 completed 算法 `result.json`
-- **scope: auto**
-- **[DONE]**
-- 操作：completed record 会读取 per-algorithm `result.json`；缺失时标记 `result_missing=True` 并追加 warn。
-- 验证：`python -m pytest tests/test_state_aggregator_experiments.py::test_completed_missing_result_sets_result_missing_warning -v`
-
-### Step 7：更新 `scan_once()` 分派逻辑
-- **scope: auto**
-- **[DONE]**
-- 操作：`scan_once()` 已对 `experiment_state` 和 `placeholder` 分派到新实验聚合逻辑。
-- 验证：`python -m pytest tests/test_state_aggregator_experiments.py tests/test_run_discovery_experiments.py -v`
-
----
-
-## 模块 5：API 层适配新实验视图与日志读取
-
-### 概述
-
-- 职责：在现有 FastAPI API 上暴露新实验状态、日志 tail、benchmark export，并保持原 `/api/runs`、`/api/runs/{run_id}` 不破坏。
-- 前置依赖：模块 4
-- 预计步骤数：6
-- 当前状态：已完成；本次 v2 在模块 10 中追加备份归档只读 API。
-
-### Step 1：扩展 `/api/health`
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/api.py` 已返回 `version: "0.3.0"`、`has_experiment_state`、run_count、default/quick run id。
-- 验证：`python -m pytest tests/test_api_experiments.py::test_health_reports_experiment_state_support -v`
-
-### Step 2：保持 `/api/runs` 返回列表并增加默认入口信息
-- **scope: auto**
-- **[DONE]**
-- 操作：`/api/runs` 已返回 run summary，并包含 `display_name`、`source_type`、`is_placeholder`。
-- 验证：`python -m pytest tests/test_api_experiments.py::test_list_runs_contains_full17_and_quick_placeholders -v`
-
-### Step 3：扩展 `/api/runs/{run_id}` 详情
-- **scope: auto**
-- **[DONE]**
-- 操作：`/api/runs/{run_id}` 已返回 `records[]`、artifact 路径、result missing、process/stale marker。
-- 验证：`python -m pytest tests/test_api_experiments.py::test_get_run_detail_contains_records_and_artifact_paths -v`
-
-### Step 4：新增日志 tail API
-- **scope: auto**
-- **[DONE]**
-- 操作：已新增 `/api/runs/{run_id}/logs/{algorithm}/stdout` 与 `/stderr`。
-- 验证：
-  ```bash
-  python -m pytest tests/test_api_experiments.py::test_stdout_log_endpoint_returns_tail -v
-  python -m pytest tests/test_api_experiments.py::test_missing_log_endpoint_returns_exists_false -v
-  ```
-
-### Step 5：新增 benchmark export API
-- **scope: auto**
-- **[DONE]**
-- 操作：已新增 `/api/runs/{run_id}/benchmark`，空数组有效，文件缺失不 500。
-- 验证：
-  ```bash
-  python -m pytest tests/test_api_experiments.py::test_benchmark_export_empty_array_is_valid -v
-  python -m pytest tests/test_api_experiments.py::test_missing_benchmark_export_is_not_500 -v
-  ```
-
-### Step 6：SSE 继续推送 run snapshot
-- **scope: auto**
-- **[DONE]**
-- 操作：`/api/runs/{run_id}/events` 已对 experiment run 返回 SSE snapshot。
-- 验证：`python -m pytest tests/test_api_experiments.py::test_sse_endpoint_exists_for_experiment_run -v`
-
----
-
-## 模块 6：前端 `monitor_dashboard.html` 迁移
-
-### 概述
-
-- 职责：单页前端展示固定入口、算法状态表、artifact 日志、进度、结果、benchmark 图表与对比。
-- 前置依赖：模块 5
-- 预计步骤数：6
-- 当前状态：已完成；本次 v2 在模块 10 中追加备份状态展示。
-
-### Step 1：更新前端数据模型常量
-- **scope: auto**
-- **[DONE]**
-- 操作：`monitor_dashboard.html` 已支持新状态、source type、i18n 文案。
-- 验证：`python -m pytest tests/test_frontend_static.py -v`（如本仓库无该文件，则运行全量测试）
-
-### Step 2：首页增加固定入口卡片
-- **scope: auto**
-- **[DONE]**
-- 操作：首页 run overview 已展示 Full 17 与 Quick placeholder。
-- 验证：`python -m pytest tests/test_api_experiments.py::test_list_runs_contains_full17_and_quick_placeholders -v`
-
-### Step 3：实现算法状态表
-- **scope: auto**
-- **[DONE]**
-- 操作：前端已展示 `records[]` 状态、attempts、device、started/finished、result missing、日志按钮、error。
-- 验证：人工打开 dashboard，检查 Full 17 / Quick 状态表。
-
-### Step 4：实现 stdout/stderr 日志面板
-- **scope: auto**
-- **[DONE]**
-- 操作：前端已通过日志 tail API 加载当前算法 stdout/stderr。
-- 验证：`python -m pytest tests/test_api_experiments.py::test_stdout_log_endpoint_returns_tail -v`
-
-### Step 5：实验证进度与 stale marker 展示
-- **scope: auto**
-- **[DONE]**
-- 操作：前端已展示 progress、overall progress、process marker、possibly stale。
-- 验证：人工打开带 `process.json` 的 fixture 页面。
-
-### Step 6：更新结果与图表渲染
-- **scope: auto**
-- **[DONE]**
-- 操作：结果表和 Chart.js 图表已读取 `results` 与 `/api/runs/{run_id}/benchmark`。
-- 验证：`python -m pytest tests/test_api_experiments.py::test_fixture_api_end_to_end -v`
-
----
-
-## 模块 7：benchmark 兼容与导出映射
-
-### 概述
-
-- 职责：兼容 `paper2` 导出的 `results/benchmark_<run_id>.json` 与旧 benchmark 字段。
-- 前置依赖：模块 4、5
-- 预计步骤数：3
-- 当前状态：已完成
-
-### Step 1：更新 benchmark loader 字段映射
-- **scope: auto**
-- **[DONE]**
-- 操作：`dashboard/run_discovery.py::load_benchmark_results()` 已支持 `final_reward_mean`、`final_latency_mean`、`final_energy_mean`、`final_comm_score` 等字段。
-- 验证：`python -m pytest tests/test_state_aggregator_experiments.py::test_benchmark_export_supplements_missing_metric_without_overriding_result_json -v`
-
-### Step 2：状态聚合中按 run_id 读取 benchmark export
-- **scope: auto**
-- **[DONE]**
-- 操作：`scan_experiment_once()` 已按 descriptor 的 `benchmark_export_file` 合并 fallback benchmark。
-- 验证：`python -m pytest tests/test_state_aggregator_experiments.py::test_benchmark_export_supplements_missing_metric_without_overriding_result_json -v`
-
-### Step 3：更新 compare/export helper
-- **scope: auto**
-- **[DONE]**
-- 操作：compare/export 使用 `RunState.results`，可对 structured 与 benchmark fallback 结果做对比。
-- 验证：`python -m pytest tests/test_exporter.py tests/test_api_experiments.py -v`
-
----
-
-## 模块 8：测试 fixtures 与回归测试补齐
-
-### 概述
-
-- 职责：提供 Full 17 running、Quick failed、completed result、edge case fixtures。
-- 前置依赖：模块 1-7
-- 预计步骤数：5
-- 当前状态：已完成；本次 v2 在模块 10 中追加 Patch 10 backup/archive fixtures。
-
-### Step 1：创建 Full 17 running fixture
-- **scope: auto**
-- **[DONE]**
-- 操作：`tests/fixtures/experiments/paper2_full_17_vscode/` 已提供 Full 17 状态 fixture。
-- 验证：`python -m pytest tests/test_api_experiments.py::test_fixture_api_end_to_end -v`
-
-### Step 2：创建 Quick failed fixture
-- **scope: auto**
-- **[DONE]**
-- 操作：`tests/fixtures/experiments/vscode_quick/` 已提供 Quick failed 状态与日志 fixture。
-- 验证：`python -m pytest tests/test_state_aggregator_experiments.py::test_quick_failed_points_to_grpo_logs -v`
-
-### Step 3：创建 completed result fixture
-- **scope: auto**
-- **[DONE]**
-- 操作：已提供 completed per-algorithm `result.json` fixture。
-- 验证：`python -m pytest tests/test_experiment_reader.py tests/test_state_aggregator_experiments.py -v`
-
-### Step 4：创建 edge case fixtures
-- **scope: auto**
-- **[DONE]**
-- 操作：已提供 missing result 与 invalid state JSON fixture。
-- 验证：
-  ```bash
-  python -m pytest tests/test_state_aggregator_experiments.py::test_missing_completed_result_is_warning_not_failure -v
-  python -m pytest tests/test_state_aggregator_experiments.py::test_invalid_state_json_does_not_crash_scan -v
-  ```
-
-### Step 5：端到端 API 测试
-- **scope: auto**
-- **[DONE]**
-- 操作：`tests/test_api_experiments.py` 已覆盖 health、runs、detail、logs、benchmark、SSE、fixture e2e。
-- 验证：`python -m pytest tests/test_api_experiments.py -v`
-
----
-
-## 模块 9：文档、启动脚本与最终验收
-
-### 概述
-
-- 职责：更新 README、Windows 启动脚本、迁移说明和最终验收。
-- 前置依赖：模块 1-8
-- 预计步骤数：3
-- 当前状态：已完成
-
-### Step 1：更新 README
-- **scope: auto**
-- **[DONE]**
-- 操作：README 已说明 dashboard 对 `paper2` 新实验目录的读取方式。
-- 验证：`python -m pytest -v`
-
-### Step 2：更新 Windows 启动脚本
-- **scope: auto**
-- **[DONE]**
-- 操作：Windows 启动脚本已适配当前入口。
-- 验证：`python -m pytest tests/test_windows_start_menu_scripts.py -v`（如存在）
-
-### Step 3：新增迁移说明文档
-- **scope: auto**
-- **[DONE]**
-- 操作：已新增迁移说明文档。
-- 验证：`python -m pytest -v`
-
----
-
-# 模块 10：Patch 10 备份归档适配（新增）
+# 模块 11：备份可见性修复与诊断增强
 
 ## 概述
 
-- 职责：让 dashboard 正确理解 `paper2` Patch 10 的备份与归档文件语义。
-- 核心问题：
-  1. `scripts/backup_experiment.py` 会复制 `experiments/<run_id>/` 到 `experiments/<run_id>_backup_<timestamp>/`。
-  2. `start --fresh` 默认会复制到 `experiments/<run_id>_auto_<timestamp>/` 后再删除并重建 active run。
-  3. 复制目录内保留原 `run.json.run_id` 与 `state.json.run_id`，dashboard 当前按 `run_id` 建状态缓存，存在覆盖 active run 的风险。
-  4. `results/archive/<timestamp>/benchmark*.json` 是历史结果快照，不得替代 active `results/benchmark_<run_id>.json`。
-- 前置依赖：模块 1-9 全部完成
+- 职责：修复 VSCode `Backup Full 17 Data` 生成的备份不可见问题；增加全局备份视图与诊断 API。
+- 前置依赖：模块 10
 - 预计步骤数：6
+- 影响文件：
+  - `dashboard/config.py`
+  - `dashboard/models.py`
+  - `dashboard/run_discovery.py`
+  - `dashboard/api.py`
+  - `monitor_dashboard.html`
+  - `tests/test_run_discovery_experiments.py`
+  - `tests/test_api_experiments.py`
+  - `tests/test_frontend_backup_static.py`
+  - `README.md` 或 `docs/windows-start-menu-launcher.md`
+  - `docs/report.md`
+  - `docs/progress.md`
 
----
-
-## Step 1：新增 backup/archive 领域模型（新增）
-
-- **scope: auto**
-- **[DONE]**
-- 文件：`dashboard/models.py`
-- 操作：新增 dataclass `BackupSnapshot`。
-- 必须定义字段：
-
-```python
-@dataclass
-class BackupSnapshot:
-    run_id: str
-    backup_id: str
-    backup_type: str
-    timestamp: str
-    experiment_dir: str
-    display_name: str = ""
-    source_run_id: str = ""
-    status: str = ""
-    completed_algorithms: int = 0
-    total_algorithms: int = 0
-    created_at: str = ""
-    updated_at: str = ""
-    benchmark_archive_dir: str = ""
-    benchmark_files: list[str] = field(default_factory=list)
-    figures_archive_dir: str = ""
-    figure_files: list[str] = field(default_factory=list)
-```
-
-- 字段规则：
-  - `backup_type` 只允许 `"backup"` 或 `"auto"`。
-  - `backup_id = f"{source_run_id}_{backup_type}_{timestamp}"`。
-  - `run_id` 用于 API 路径时等于 `backup_id`，避免与 active run 的 `run_id` 冲突。
-  - `source_run_id` 来自备份目录名的原始 run id。
-  - `status` 从备份目录内 `state.json.status` 读取；读取失败为空字符串。
-  - `completed_algorithms` 从 `state.json.completed_algorithms.length` 读取；读取失败为 0。
-  - `total_algorithms` 优先从 `state.json.records.length` 读取，其次从 `run.json.algorithms.length` 读取。
-- 同步更新 `dataclass_to_dict()` 无需特殊分支，现有 dataclass 递归逻辑应直接支持。
-- 验证：
-
-```bash
-python - <<'PY'
-from dashboard.models import BackupSnapshot, dataclass_to_dict
-b = BackupSnapshot(run_id='paper2_full_17_vscode_backup_20260501_150000', backup_id='paper2_full_17_vscode_backup_20260501_150000', backup_type='backup', timestamp='20260501_150000', experiment_dir='x', source_run_id='paper2_full_17_vscode')
-d = dataclass_to_dict(b)
-assert d['backup_type'] == 'backup'
-assert d['source_run_id'] == 'paper2_full_17_vscode'
-PY
-```
-
----
-
-## Step 2：实现 backup 目录识别与 active discovery 排除（已修改）
-
-- **scope: review**
-- **[DONE]**
-- 文件：`dashboard/run_discovery.py`
-- 操作 1：新增常量与函数：
-
-```python
-import re
-
-BACKUP_DIR_PATTERN = re.compile(
-    r"^(?P<source_run_id>[A-Za-z0-9_.-]+)_(?P<backup_type>backup|auto)_(?P<timestamp>\d{8}_\d{6})$"
-)
-
-def parse_backup_dir_name(name: str) -> tuple[str, str, str] | None:
-    ...
-
-def is_backup_experiment_dir(path: Path) -> bool:
-    ...
-```
-
-- 实现要求：
-  - `parse_backup_dir_name("paper2_full_17_vscode_backup_20260501_150000")` 返回 `("paper2_full_17_vscode", "backup", "20260501_150000")`。
-  - `parse_backup_dir_name("paper2_full_17_vscode_auto_20260501_150000")` 返回 `("paper2_full_17_vscode", "auto", "20260501_150000")`。
-  - 对 `paper2_full_17_vscode`、`vscode_quick`、`paper2_full_17_vscode_backup_bad` 返回 `None`。
-  - `is_backup_experiment_dir(path)` 只基于 `path.name` 判断，不读取文件。
-- 操作 2：修改 `discover_experiment_runs(experiments_dir, results_dir)`：
-  - 在遍历 `experiments_dir.iterdir()` 时，若 `is_backup_experiment_dir(experiment_dir)` 为 True，直接 `continue`。
-  - 不要把 backup 目录合并成 `RunDescriptor`。
-  - 不要让 backup 目录参与 default placeholder skip 逻辑。
-- 风险说明：
-  - 该步骤影响 active run discovery 与状态缓存，完成后需要重点审核。
-- 验证：
-
-```bash
-python -m pytest tests/test_run_discovery_experiments.py::test_backup_experiment_dirs_are_excluded_from_active_runs -v
-python -m pytest tests/test_run_discovery_experiments.py::test_active_run_wins_when_backup_has_same_embedded_run_id -v
-```
-
----
-
-## Step 3：实现备份归档发现器（新增）
-
-- **scope: review**
-- **[DONE]**
-- 文件：`dashboard/run_discovery.py`
-- 操作：新增函数：
-
-```python
-def discover_experiment_backups(experiments_dir: Path | None, results_dir: Path) -> list[BackupSnapshot]:
-    ...
-```
-
-- 发现规则：
-  - `experiments_dir is None` 或目录不存在时返回空列表。
-  - 遍历 `experiments_dir.iterdir()`，只接受目录名匹配 `BACKUP_DIR_PATTERN` 的目录。
-  - 每个 backup 目录可以存在 `run.json`、`state.json`，但二者都不是必须。
-  - `display_name` 优先读取 `run.json.name`；否则使用 `source_run_id`。
-  - `status` 优先读取 `state.json.status`；否则为空字符串。
-  - `completed_algorithms` 从 `state.json.completed_algorithms` 长度读取。
-  - `total_algorithms` 优先从 `state.json.records` 长度读取；其次从 `run.json.algorithms` 长度读取。
-  - `created_at`、`updated_at` 优先来自 `run.json` / `state.json`；没有则为空字符串。
-  - `experiment_dir` 填 backup 目录字符串路径。
-  - `benchmark_archive_dir = str(results_dir / "archive" / timestamp)`，仅当目录存在时填充，否则为空字符串。
-  - `benchmark_files` 读取该 archive 目录下顶层 `benchmark*.json` 文件名，按文件名排序；不递归。
-  - `figures_archive_dir` 不在本函数内推断，保留为空字符串；图表 archive 由 Step 4 可选补充。
-- 排序：
-  - 返回列表按 `timestamp` 降序排列；同 timestamp 下按 `backup_id` 升序。
-- 禁止：
-  - 不读取 `experiments/.index.sqlite3`。
-  - 不把 `results/archive` 中的 benchmark 文件合并到 active `RunState.results`。
-- 验证：
-
-```bash
-python -m pytest tests/test_run_discovery_experiments.py::test_discover_experiment_backups_reads_backup_metadata -v
-python -m pytest tests/test_run_discovery_experiments.py::test_discover_experiment_backups_links_result_archive_by_timestamp -v
-```
-
----
-
-## Step 4：可选补充 figures archive 发现（新增）
+## Step 1：新增 backup scan roots 配置
 
 - **scope: auto**
-- **[DONE]**
-- 文件：`dashboard/run_discovery.py`
-- 操作：新增函数：
-
-```python
-def enrich_backup_figures(backups: list[BackupSnapshot], figures_dir: Path | None) -> list[BackupSnapshot]:
-    ...
-```
-
-- 实现规则：
-  - `figures_dir is None` 或目录不存在时直接返回原列表。
-  - 对每个 `BackupSnapshot`：
-    - `candidate = figures_dir / "archive" / backup.timestamp`
-    - 若目录存在：
-      - `backup.figures_archive_dir = str(candidate)`
-      - `backup.figure_files = sorted(item.name for item in candidate.iterdir() if item.is_file())`
-    - 若目录不存在：保持空字符串与空列表。
-  - 不递归读取 `figures/archive/<timestamp>/archive`。
-- 验证：
-
-```bash
-python -m pytest tests/test_run_discovery_experiments.py::test_enrich_backup_figures_reads_top_level_files_only -v
-```
-
----
-
-## Step 5：新增只读 backup API（新增）
-
-- **scope: review**
-- **[DONE]**
 - 文件：`dashboard/config.py`
-- 操作 1：扩展 `DashboardConfig`：
-  - 新增字段：`figures_dir: Path | None = Path("figures")`
-- 操作 2：扩展 `parse_cli_args(argv)`：
-  - 新增参数：`--figures-dir`，默认 `figures`
-- 操作 3：更新启动日志（如 `serve_dashboard.py` 当前打印配置）：
-  - 打印 `figures_dir`
-- 文件：`dashboard/api.py`
-- 操作 4：新增 endpoint：
-
-```python
-@app.get("/api/backups")
-async def list_backups():
-    ...
-
-@app.get("/api/runs/{run_id}/backups")
-async def list_run_backups(run_id: str):
-    ...
-```
-
-- API 规则：
-  - `/api/backups` 返回：
-    ```json
-    {
-      "backups": [ ...BackupSnapshot dict... ]
-    }
-    ```
-  - `/api/runs/{run_id}/backups` 返回：
-    ```json
-    {
-      "run_id": "paper2_full_17_vscode",
-      "backups": [ ...only source_run_id == run_id... ]
-    }
-    ```
-  - 两个接口均只读，不触发文件复制、删除、恢复。
-  - 内部调用：
-    ```python
-    backups = discover_experiment_backups(store.config.experiments_dir, store.config.results_dir)
-    backups = enrich_backup_figures(backups, store.config.figures_dir)
-    ```
-- API 兼容要求：
-  - 不修改 `/api/runs` 响应结构。
-  - 不修改 `/api/runs/{run_id}` 响应结构。
-  - 不把 backup 放入 run overview active list。
+- 操作：
+  1. 在 `DashboardConfig` 新增字段：
+     ```python
+     backup_scan_dirs: list[Path] = field(default_factory=list)
+     ```
+  2. 修改 `parse_cli_args(argv)`：
+     - 新增参数 `--backup-scan-dir`，允许重复传入：
+       ```bash
+       --backup-scan-dir C:/Users/22003/paper2/experiments
+       --backup-scan-dir C:/Users/22003/paper2/backups
+       ```
+     - 默认值为空列表。
+  3. 新增 helper：
+     ```python
+     def backup_scan_roots(config: DashboardConfig) -> list[Path]:
+         ...
+     ```
+- 实现规则：
+  - 返回去重后的扫描根目录。
+  - 顺序：
+    1. `config.experiments_dir`
+    2. `config.results_dir / "archive"` 的父级不作为 experiment backup root，只作为 archive-only root；不要混入此 helper。
+    3. `config.backup_scan_dirs`
+  - `None` 和不存在目录不在 helper 中强制过滤，由 discovery 函数决定。
 - 验证：
+  ```bash
+  python -m pytest tests/test_config.py::test_backup_scan_dirs_can_be_repeated -v
+  python -m pytest tests/test_config.py::test_backup_scan_roots_deduplicates_experiments_dir -v
+  ```
 
-```bash
-python -m pytest tests/test_config.py::test_default_config_uses_figures_dir -v
-python -m pytest tests/test_api_experiments.py::test_list_backups_returns_patch10_backup_snapshots -v
-python -m pytest tests/test_api_experiments.py::test_list_run_backups_filters_by_source_run_id -v
-```
-
----
-
-## Step 6：前端展示备份信息与回归验收（新增）
+## Step 2：扩展 backup 目录命名兼容
 
 - **scope: review**
-- **[DONE]**
-- 文件：`monitor_dashboard.html`
-- 操作 1：新增 i18n 文案：
-  - `backup.title`
-  - `backup.latest`
-  - `backup.none`
-  - `backup.type`
-  - `backup.timestamp`
-  - `backup.status`
-  - `backup.completed`
-  - `backup.files`
-  - `backup.auto`
-  - `backup.manual`
-- 操作 2：在前端 `dashboardState` 新增字段：
-  ```js
-  backups: [],
-  currentRunBackups: []
+- 文件：`dashboard/run_discovery.py`
+- 操作：
+  1. 保留现有严格命名匹配。
+  2. 新增宽松识别函数：
+     ```python
+     def infer_backup_metadata_from_dir(path: Path) -> tuple[str, str, str] | None:
+         ...
+     ```
+  3. 修改 `discover_experiment_backups()` 使用该函数，而不是只调用 `parse_backup_dir_name()`。
+- 必须兼容的目录名：
+  ```text
+  paper2_full_17_vscode_backup_20260501_150000
+  paper2_full_17_vscode_auto_20260501_150000
+  paper2_full_17_vscode_backup_2026-05-01_15-00-00
+  paper2_full_17_vscode_auto_2026-05-01_15-00-00
+  paper2_full_17_vscode_backup_20260501-150000
+  paper2_full_17_vscode_backup
   ```
-- 操作 3：新增 API client 函数：
-  ```js
-  async function loadBackups() { ... }              // GET /api/backups
-  async function loadRunBackups(runId) { ... }      // GET /api/runs/{runId}/backups
-  ```
-- 操作 4：在 Run Detail 或 Progress panel 下方新增一个轻量 Backup panel：
-  - 显示当前 run 最新 backup：
-    - `backup_type`
-    - `timestamp`
-    - `status`
-    - `completed_algorithms / total_algorithms`
-    - `benchmark_files.length`
-    - `figure_files.length`
-  - 若没有 backup，显示 `backup.none`。
-  - 不提供 restore/delete/fresh 按钮。
-- 操作 5：Run Overview tile 上可选显示 latest backup timestamp：
-  - 只对 active run 显示。
-  - placeholder 没有 backup 时不显示警告。
-- 操作 6：新增静态或 API 回归测试：
-  - 若项目已有前端静态断言测试，追加检查 `backup.title`、`loadRunBackups`、`/api/runs/${runId}/backups` 字符串。
-  - 若没有前端静态测试，则新增 `tests/test_frontend_backup_static.py`。
+- 推断规则：
+  - 优先严格正则。
+  - 若目录名包含 `_backup_` 或 `_auto_`，按分隔符左侧作为 `source_run_id`，右侧解析 timestamp。
+  - 若目录名以 `_backup` 或 `_auto` 结尾且无 timestamp：
+    - `timestamp` 使用目录 `st_mtime` 转成 `YYYYMMDD_HHMMSS`。
+  - `backup_type` 只允许 `backup` 或 `auto`。
+  - 无法推断 `source_run_id` 时，若 `run.json.run_id` 存在，使用 `run.json.run_id`。
 - 验证：
+  ```bash
+  python -m pytest tests/test_run_discovery_experiments.py::test_infer_backup_metadata_accepts_vscode_backup_variants -v
+  python -m pytest tests/test_run_discovery_experiments.py::test_backup_without_timestamp_uses_directory_mtime -v
+  ```
 
-```bash
-python -m pytest tests/test_frontend_backup_static.py -v
-python -m pytest tests/test_run_discovery_experiments.py tests/test_api_experiments.py -v
-python -m pytest -v
-```
+## Step 3：支持多 backup scan roots
+
+- **scope: review**
+- 文件：`dashboard/run_discovery.py`
+- 操作：
+  1. 新增函数：
+     ```python
+     def discover_experiment_backups_from_roots(
+         roots: list[Path],
+         results_dir: Path,
+     ) -> list[BackupSnapshot]:
+         ...
+     ```
+  2. 保留现有 `discover_experiment_backups(experiments_dir, results_dir)`，内部委托新函数。
+  3. 修改 `dashboard/api.py::_discover_backups(store)` 使用：
+     ```python
+     roots = backup_scan_roots(store.config)
+     backups = discover_experiment_backups_from_roots(roots, store.config.results_dir)
+     ```
+- 合并规则：
+  - `backup_id` 相同只保留一个。
+  - 若重复，优先保留包含 `state.json` 的备份目录。
+  - 排序按 timestamp 降序。
+- 验证：
+  ```bash
+  python -m pytest tests/test_run_discovery_experiments.py::test_discover_experiment_backups_from_multiple_roots -v
+  python -m pytest tests/test_api_experiments.py::test_list_backups_uses_backup_scan_dirs -v
+  ```
+
+## Step 4：新增 archive-only 发现
+
+- **scope: review**
+- 文件：`dashboard/run_discovery.py`
+- 操作：
+  1. 新增函数：
+     ```python
+     def discover_archive_only_backups(results_dir: Path) -> list[BackupSnapshot]:
+         ...
+     ```
+  2. 在 `discover_experiment_backups_from_roots()` 结果之外，API 聚合时追加 archive-only backups。
+- 发现规则：
+  - 扫描 `results_dir / "archive" / "*"`。
+  - 只接受目录。
+  - 目录下存在 `benchmark*.json` 时生成 `BackupSnapshot`。
+  - `backup_type = "archive"`
+  - `source_run_id`：
+    - 优先从文件名 `benchmark_<run_id>.json` 提取。
+    - `benchmark.json` 不能推断 source_run_id，设为空字符串。
+  - `run_id = backup_id = f"{source_run_id or 'unknown'}_archive_{timestamp}"`
+  - `timestamp` 优先用 archive 目录名；若目录名不可解析，用目录 `st_mtime`。
+  - `experiment_dir = ""`
+  - `benchmark_archive_dir = str(archive_dir)`
+  - `benchmark_files = sorted(...)`
+- 模型调整：
+  - `BackupSnapshot.backup_type` 允许 `"archive"`。
+- 验证：
+  ```bash
+  python -m pytest tests/test_run_discovery_experiments.py::test_discover_archive_only_backups_from_results_archive -v
+  python -m pytest tests/test_api_experiments.py::test_list_backups_includes_archive_only_snapshots -v
+  ```
+
+## Step 5：新增备份诊断 API
+
+- **scope: auto**
+- 文件：`dashboard/api.py`
+- 操作：新增 endpoint：
+  ```python
+  @app.get("/api/backups/diagnostics")
+  async def backup_diagnostics():
+      ...
+  ```
+- 返回结构：
+  ```json
+  {
+    "experiments_dir": "...",
+    "results_dir": "...",
+    "figures_dir": "...",
+    "backup_scan_dirs": ["..."],
+    "scanned_roots": [
+      {"path": "...", "exists": true, "entries": 12, "candidate_backups": 2}
+    ],
+    "results_archive": {
+      "path": ".../results/archive",
+      "exists": true,
+      "entries": 3,
+      "benchmark_archives": 2
+    },
+    "matched_backups": 3,
+    "notes": []
+  }
+  ```
+- 规则：
+  - 不抛 500；读取失败写入 `notes`。
+  - 不返回大文件内容。
+- 用户反馈补充展示 API：
+  - 新增 `GET /api/backups/{backup_id}`，返回可被现有看板详情渲染的 `RunState`。
+  - 新增 `GET /api/backups/{backup_id}/logs/{algorithm}/{stream}`，支持 backup artifact log tail。
+  - archive-only backup 通过 `results/archive/<timestamp>/benchmark*.json` 构建静态结果快照。
+- 验证：
+  ```bash
+  python -m pytest tests/test_api_experiments.py::test_backup_diagnostics_reports_scan_roots_and_archive -v
+  ```
+
+## Step 6：前端新增全局 Backups 面板与诊断提示
+
+- **scope: review**
+- 文件：`monitor_dashboard.html`
+- 操作：
+  1. 将当前只显示 current run latest backup 的 panel 改成：
+     - 当前 run latest backup
+     - 全局 recent backups table
+     - diagnostics summary
+  2. 新增前端函数：
+     ```js
+     async function loadBackupDiagnostics() { ... }
+     function renderGlobalBackups(backups) { ... }
+     function renderBackupDiagnostics(diagnostics) { ... }
+     ```
+  3. 页面上显示：
+     - scanned roots
+     - results archive 是否存在
+     - matched backups 数量
+     - 当 matched_backups 为 0 时，显示“检查 --experiments-dir / --backup-scan-dir / --results-dir”
+  4. 保留 `/api/runs/{runId}/backups` 当前 run 过滤逻辑。
+  5. 将 backup 加入 top-level run selector 的 Backups 分组，并在全局 backups table 提供 View 操作。
+- 禁止：
+  - 不提供恢复、删除按钮；删除按钮放在模块 12 的 Danger Zone。
+- 验证：
+  ```bash
+  python -m pytest tests/test_frontend_backup_static.py::test_frontend_contains_global_backup_diagnostics_ui -v
+  python -m pytest tests/test_frontend_backup_static.py::test_frontend_can_select_backups_as_dashboard_options -v
+  python -m pytest tests/test_api_experiments.py::test_list_run_backups_filters_by_source_run_id -v
+  ```
+
+## 模块 11 验收标准
+
+- [x] VSCode `Backup Full 17 Data` 生成的标准或非标准命名目录可以被 `/api/backups` 发现。
+- [x] `results/archive/<timestamp>/benchmark*.json` 即使没有 experiment backup dir，也能作为 archive-only backup 显示。
+- [x] `/api/backups/diagnostics` 能显示实际扫描了哪些目录。
+- [x] `/api/runs` 仍不显示 backup/archive 记录。
+- [x] 页面能看到全局备份列表和诊断提示。
+- [x] backup/archive 可以作为看板选项进入详情、结果图表和 artifact log 展示。
 
 ---
 
-## 模块 10 验收标准
+# 模块 12：本地源文件删除功能
 
-- [x] `experiments/paper2_full_17_vscode_backup_20260501_150000/` 不出现在 `/api/runs`。
-- [x] `experiments/paper2_full_17_vscode_auto_20260501_150000/` 不出现在 `/api/runs`。
-- [x] 当 active `experiments/paper2_full_17_vscode/` 和 backup 目录同时存在时，`/api/runs/paper2_full_17_vscode` 只读取 active 目录。
-- [x] `/api/backups` 返回 backup/auto 两类快照。
-- [x] `/api/runs/paper2_full_17_vscode/backups` 只返回 `source_run_id == "paper2_full_17_vscode"` 的备份。
-- [x] `results/archive/<timestamp>/benchmark*.json` 只作为 backup metadata 展示，不参与 active charts 自动合并。
-- [x] `figures/archive/<timestamp>/*` 只作为 backup metadata 展示，不递归读取旧 archive。
-- [x] `python -m pytest -v` 通过。
-- [x] dashboard 页面显示 latest backup 信息，但不提供写操作按钮。
+## 概述
+
+- 职责：为 dashboard 增加受控删除本地实验数据功能，删除真实源文件，而不是仅隐藏 UI 记录。
+- 前置依赖：模块 11
+- 预计步骤数：8
+- 影响文件：
+  - `dashboard/models.py`
+  - `dashboard/delete_service.py`（新增）
+  - `dashboard/api.py`
+  - `dashboard/run_discovery.py`
+  - `dashboard/state_store.py`
+  - `monitor_dashboard.html`
+  - `tests/test_delete_service.py`（新增）
+  - `tests/test_api_delete.py`（新增）
+  - `tests/test_frontend_delete_static.py`（新增或合并）
+  - `docs/report.md`
+  - `docs/progress.md`
+
+## Step 1：新增删除领域模型
+
+- **scope: auto**
+- 文件：`dashboard/models.py`
+- 操作：新增 dataclass：
+  ```python
+  @dataclass
+  class DeleteTarget:
+      target_id: str
+      target_type: str
+      display_name: str
+      source_run_id: str = ""
+      paths: list[str] = field(default_factory=list)
+      exists: bool = True
+      deletable: bool = True
+      blocked_reason: str = ""
+      warnings: list[str] = field(default_factory=list)
+
+  @dataclass
+  class DeletePreview:
+      target_id: str
+      target_type: str
+      display_name: str
+      paths: list[str]
+      total_files: int
+      total_dirs: int
+      total_bytes: int
+      blocked: bool
+      blocked_reason: str = ""
+      confirm_token: str = ""
+      warnings: list[str] = field(default_factory=list)
+
+  @dataclass
+  class DeleteResult:
+      target_id: str
+      deleted_paths: list[str]
+      skipped_paths: list[str] = field(default_factory=list)
+      errors: list[str] = field(default_factory=list)
+  ```
+- `target_type` 允许：
+  ```text
+  active_run
+  backup
+  archive
+  benchmark_export
+  figure_archive
+  ```
+- 验证：
+  ```bash
+  python - <<'PY'
+  from dashboard.models import DeletePreview, dataclass_to_dict
+  p = DeletePreview(target_id='x', target_type='backup', display_name='x', paths=['a'], total_files=1, total_dirs=0, total_bytes=10, blocked=False, confirm_token='abc')
+  assert dataclass_to_dict(p)['confirm_token'] == 'abc'
+  PY
+  ```
+
+## Step 2：新增删除服务与路径安全策略
+
+- **scope: review**
+- 文件：`dashboard/delete_service.py`
+- 操作：新增类：
+  ```python
+  class LocalDataDeleteService:
+      def __init__(self, config: DashboardConfig):
+          ...
+
+      def list_targets(self) -> list[DeleteTarget]:
+          ...
+
+      def preview_delete(self, target_id: str) -> DeletePreview:
+          ...
+
+      def confirm_delete(self, target_id: str, confirm_token: str) -> DeleteResult:
+          ...
+  ```
+- 路径白名单：
+  - `config.experiments_dir`
+  - `config.logs_dir`
+  - `config.runs_dir`
+  - `config.results_dir`
+  - `config.figures_dir`
+  - `config.backup_scan_dirs`
+- 安全规则：
+  1. 所有待删路径必须 `resolve()` 后位于白名单根目录内。
+  2. 禁止删除白名单根目录本身。
+  3. 禁止删除路径名为 `.git`、`docs`、`dashboard`、`tests`、`scripts` 的目录。
+  4. 禁止删除任意路径中包含 `.git` 片段。
+  5. 删除 active run 时：
+     - 若 `state.status in {"running", "stop_requested"}`，blocked。
+     - 若 `process.json` 存在，blocked。
+  6. 删除 backup/archive 可以删除：
+     - backup experiment dir
+     - matching `results/archive/<timestamp>`
+     - matching `figures/archive/<timestamp>`
+  7. 删除 benchmark export 可删除 `results/benchmark_<run_id>.json`。
+  8. 用户反馈补充后，全局 `config.benchmark_json` 作为独立 `benchmark_json:latest` target，可在 preview/confirm 后删除。
+- confirm token：
+  - `preview_delete()` 生成 token：
+    ```python
+    sha256(f"{target_id}|{sorted(paths)}|{total_bytes}|dashboard-delete-v1")
+    ```
+  - `confirm_delete()` 必须重新 preview 并比对 token。
+- 验证：
+  ```bash
+  python -m pytest tests/test_delete_service.py::test_delete_service_blocks_paths_outside_allowed_roots -v
+  python -m pytest tests/test_delete_service.py::test_delete_service_blocks_running_experiment -v
+  python -m pytest tests/test_delete_service.py::test_delete_service_deletes_backup_dir_and_matching_archives -v
+  ```
+
+## Step 3：实现删除 target discovery
+
+- **scope: review**
+- 文件：`dashboard/delete_service.py`
+- 操作：
+  - `list_targets()` 必须从当前 discovery 结果构造 target：
+    1. active runs：来自 `discover_runs(config)` 中的 experiment descriptors
+    2. backups：来自模块 11 的 backup discovery
+    3. archive-only backups：来自 `discover_archive_only_backups(config.results_dir)`
+    4. benchmark export：来自 run descriptor 的 `benchmark_export_file`
+    5. structured runs：来自 `config.runs_dir`
+    6. legacy logs：来自 `config.logs_dir`
+    7. global benchmark JSON：来自 `config.benchmark_json`
+- target_id 规则：
+  ```text
+  active_run:<run_id>
+  backup:<backup_id>
+  archive:<backup_id>
+  benchmark_export:<run_id>
+  structured_run:<run_id>
+  legacy_log:<run_id>
+  benchmark_json:latest
+  ```
+- 去重规则：
+  - 同一物理路径只在一个 target 中出现；优先级：active_run > structured_run > legacy_log > backup > archive > benchmark_export > benchmark_json。
+- 验证：
+  ```bash
+  python -m pytest tests/test_delete_service.py::test_list_targets_includes_active_run_backup_archive_and_benchmark_export -v
+  python -m pytest tests/test_delete_service.py::test_list_targets_includes_legacy_logs_structured_runs_and_benchmark_json -v
+  ```
+
+## Step 4：新增删除 API
+
+- **scope: review**
+- 文件：`dashboard/api.py`
+- 操作：新增 endpoint：
+  ```python
+  @app.get("/api/delete-targets")
+  async def list_delete_targets():
+      ...
+
+  @app.post("/api/delete-preview")
+  async def delete_preview(payload: dict):
+      ...
+
+  @app.post("/api/delete-confirm")
+  async def delete_confirm(payload: dict):
+      ...
+  ```
+- 请求/响应：
+  - `POST /api/delete-preview`
+    ```json
+    {"target_id": "backup:paper2_full_17_vscode_backup_20260501_150000"}
+    ```
+    返回 `DeletePreview`
+  - `POST /api/delete-confirm`
+    ```json
+    {
+      "target_id": "backup:paper2_full_17_vscode_backup_20260501_150000",
+      "confirm_token": "..."
+    }
+    ```
+    返回 `DeleteResult`
+- API 规则：
+  - blocked preview 返回 200，`blocked=true`。
+  - confirm blocked 返回 HTTP 409。
+  - token 不匹配返回 HTTP 409。
+  - 目标不存在返回 HTTP 404。
+  - 删除完成后调用 `store.scan_all_once()` 刷新缓存。
+- 验证：
+  ```bash
+  python -m pytest tests/test_api_delete.py::test_delete_preview_returns_confirm_token -v
+  python -m pytest tests/test_api_delete.py::test_delete_confirm_removes_source_files_and_refreshes_runs -v
+  python -m pytest tests/test_api_delete.py::test_delete_confirm_rejects_running_experiment -v
+  python -m pytest tests/test_api_delete.py::test_delete_confirm_rejects_invalid_token -v
+  python -m pytest tests/test_api_delete.py::test_delete_confirm_removes_legacy_log_source_files -v
+  ```
+
+## Step 5：前端新增 Danger Zone
+
+- **scope: review**
+- 文件：`monitor_dashboard.html`
+- 操作：
+  1. 新增 section：
+     ```html
+     <section class="panel danger-zone">
+       <h2 data-i18n="delete.title">Danger Zone</h2>
+       ...
+     </section>
+     ```
+  2. 新增前端状态：
+     ```js
+     deleteTargets: [],
+     pendingDeletePreview: null
+     ```
+  3. 新增函数：
+     ```js
+     async function loadDeleteTargets() { ... }
+     async function previewDeleteTarget(targetId) { ... }
+     async function confirmDeleteTarget() { ... }
+     function renderDeleteTargets(targets) { ... }
+     function renderDeletePreview(preview) { ... }
+     ```
+  4. UI 行为：
+     - 每个 target 展示 target_type、display_name、paths 数量、blocked_reason。
+     - 删除按钮文案必须包含“Delete Source Files”或中文“删除源文件”。
+     - 点击删除先 preview。
+     - preview 显示完整 paths、文件数、目录数、总大小。
+     - confirm 要求用户输入目标 `target_id` 完全一致。
+     - blocked target 禁用确认按钮。
+- 禁止：
+  - 不使用浏览器传入路径。
+  - 不提供“delete all”。
+  - 不自动删除。
+- 验证：
+  ```bash
+  python -m pytest tests/test_frontend_delete_static.py::test_frontend_contains_danger_zone_and_confirm_flow -v
+  ```
+
+## Step 6：删除后状态刷新与用户反馈
+
+- **scope: auto**
+- 文件：`monitor_dashboard.html`
+- 操作：
+  - `confirmDeleteTarget()` 成功后：
+    1. 清空 `pendingDeletePreview`
+    2. 调用 `loadRuns()`
+    3. 调用 `loadBackups()`
+    4. 调用 `loadDeleteTargets()`
+    5. 若当前 selected run 被删除，自动选择剩余第一个 run；若无 run，清空详情区。
+  - 错误时显示 `blocked_reason` 或 API detail。
+- 验证：
+  ```bash
+  python -m pytest tests/test_frontend_delete_static.py::test_frontend_refreshes_runs_backups_and_delete_targets_after_confirm -v
+  ```
+
+## Step 7：文档与启动说明更新
+
+- **scope: auto**
+- 文件：
+  - `README.md`
+  - `docs/windows-start-menu-launcher.md`（如存在）
+- 操作：
+  - 增加 `--backup-scan-dir` 说明。
+  - 增加 `--figures-dir` 说明。
+  - 增加删除功能说明：
+    - 删除的是源文件。
+    - 运行中实验不能删。
+    - 删除前会 preview。
+    - 删除后不可从 dashboard 恢复。
+- 验证：
+  ```bash
+  python -m pytest tests/test_frontend_delete_static.py tests/test_config.py -v
+  ```
+
+## Step 8：全量回归与报告更新
+
+- **scope: review**
+- 文件：
+  - `docs/plan.md`
+  - `docs/progress.md`
+  - `docs/report.md`
+- 操作：
+  - 更新 `docs/plan.md` Status：
+    - 当前阶段：模块 11-12 完成，等待 review
+    - 整体进度：62 / 62
+    - 状态：NEEDS_REVIEW
+  - 更新 `docs/progress.md`：
+    - 新增模块 11、12 进度。
+  - 更新 `docs/report.md`：
+    - `STATUS: NEEDS_REVIEW`
+    - 标记 `scope:review` 步骤待人工确认。
+- 全量验证：
+  ```bash
+  python -m pytest tests/test_run_discovery_experiments.py tests/test_api_experiments.py tests/test_delete_service.py tests/test_api_delete.py -v
+  python -m pytest -v
+  ```
+- 手动验证：
+  1. 启动 dashboard。
+  2. 当前训练 run 仍显示。
+  3. `/api/backups/diagnostics` 显示扫描目录。
+  4. VSCode Backup Full 17 Data 产物显示在 Backups 面板。
+  5. 删除非运行中 backup，源目录确实消失。
+  6. 删除运行中 active run 被拒绝。
+  7. 删除后 `/api/runs`、`/api/backups` 自动刷新。
+
+## 模块 12 验收标准
+
+- [x] `/api/delete-targets` 只返回安全白名单内目标。
+- [x] `/api/delete-preview` 不删除文件，只返回 preview 与 confirm token。
+- [x] `/api/delete-confirm` token 不匹配时拒绝。
+- [x] 运行中实验和存在 `process.json` 的实验无法删除。
+- [x] 删除 backup 会删除真实 backup experiment dir 与匹配 archive。
+- [x] 删除 archive-only 只删除 archive 目录，不影响 active run。
+- [x] 删除 benchmark export 可删除 `results/benchmark_<run_id>.json`。
+- [x] 全局 `results/benchmark.json` 作为独立 target，经 preview/confirm 后可删除。
+- [x] 删除 legacy log / structured run 源文件经 preview/confirm 后可执行。
+- [x] 前端 Danger Zone 要求二次确认并显示完整 paths。
+- [x] 全量测试通过。
 
 ---
 
 ## Codex 执行注意事项
 
-1. 只执行模块 10 的新增/修改步骤。
-2. 模块 1-9 标记 `[DONE]`，不得重写。
-3. 修改 `dashboard/run_discovery.py` 时优先保证 active discovery 不受 backup 目录污染。
-4. 所有新增 API 保持只读。
-5. 若发现当前仓库已有 `tests/test_frontend_static.py`，优先追加测试；否则新增 `tests/test_frontend_backup_static.py`。
-6. 若 `docs/report.md` 不存在，执行完成后创建并按 v3 report 模板维护。
-7. 每完成一个模块 10 Step，更新 `docs/progress.md` 与 `docs/plan.md` Status。
+1. 只执行模块 11 和模块 12。
+2. 模块 1-10 不重做；必要时允许最小兼容改动。
+3. 所有新增 destructive API 必须有测试。
+4. 不要让前端传任意路径给后端删除。
+5. 不要删除运行中实验。
+6. 不要提供一键全部删除。
+7. 删除完成后必须刷新 state store。
+8. 执行完成后 `docs/report.md` 仍保持 `NEEDS_REVIEW`，等待人工确认。

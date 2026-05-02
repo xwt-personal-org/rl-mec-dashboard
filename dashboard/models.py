@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 ExperimentStatus = Literal["initialized", "running", "stop_requested", "stopped", "completed", "failed"]
 AlgorithmStatus = Literal["pending", "running", "completed", "interrupted", "failed", "skipped"]
-SourceType = Literal["experiment_state", "legacy_structured", "legacy_log", "mixed", "placeholder"]
+SourceType = Literal["experiment_state", "legacy_structured", "legacy_log", "mixed", "placeholder", "backup", "archive"]
 RunStatus = Literal[
     "idle",
     "running",
@@ -136,6 +136,42 @@ class BackupSnapshot:
     benchmark_files: list[str] = field(default_factory=list)
     figures_archive_dir: str = ""
     figure_files: list[str] = field(default_factory=list)
+
+
+@dataclass
+class DeleteTarget:
+    target_id: str
+    target_type: str
+    display_name: str
+    source_run_id: str = ""
+    paths: list[str] = field(default_factory=list)
+    exists: bool = True
+    deletable: bool = True
+    blocked_reason: str = ""
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
+class DeletePreview:
+    target_id: str
+    target_type: str
+    display_name: str
+    paths: list[str]
+    total_files: int
+    total_dirs: int
+    total_bytes: int
+    blocked: bool
+    blocked_reason: str = ""
+    confirm_token: str = ""
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass
+class DeleteResult:
+    target_id: str
+    deleted_paths: list[str]
+    skipped_paths: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
 
 @dataclass
