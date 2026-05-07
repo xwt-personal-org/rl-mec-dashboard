@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import threading
 import time
@@ -11,7 +12,12 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
 
-from dashboard.config import DashboardConfig, backup_scan_roots, benchmark_export_path
+from dashboard.config import DashboardConfig, backup_scan_roots, benchmark_export_path, benchmark_scan_roots, paper2_runtime_roots
+from dashboard.convergence import (
+    PAPER2_CONVERGENCE_METRICS,
+    load_convergence_payload,
+    load_train_log_convergence_payload,
+)
 from dashboard.delete_service import (
     DeleteBlocked,
     DeleteTargetNotFound,
@@ -20,12 +26,20 @@ from dashboard.delete_service import (
 )
 from dashboard.experiment_reader import read_text_tail, safe_read_json_file
 from dashboard.exporter import results_to_csv, results_to_markdown
-from dashboard.models import RunDescriptor, RunState, dataclass_to_dict, run_state_to_dict, run_summary_to_dict
+from dashboard.models import (
+    RunConvergencePayload,
+    RunDescriptor,
+    RunState,
+    dataclass_to_dict,
+    run_state_to_dict,
+    run_summary_to_dict,
+)
 from dashboard.run_discovery import (
     discover_archive_only_backups,
     discover_experiment_backups_from_roots,
     enrich_backup_figures,
     infer_backup_metadata_from_dir,
+    load_benchmark_payload,
     load_benchmark_results,
 )
 from dashboard.sse import create_sse_response, run_snapshot_event_generator
@@ -107,6 +121,51 @@ def register_routes(app: FastAPI, store: DashboardStateStore) -> None:
             raise HTTPException(status_code=404, detail="Backup not found")
         return run_state_to_dict(_backup_state(store, backup))
 
+    @app.get("/api/runs/{run_id}/convergence")
+    async def get_run_convergence(run_id: str, metric: str = "reward"):
+        _validate_convergence_metric(metric)
+        state = store.get_run_state(run_id)
+        if state is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+        paths = []
+        if state.benchmark_export_path:
+            paths.append(Path(state.benchmark_export_path))
+        fallback_path = benchmark_export_path(store.config, run_id)
+        if not paths or Path(paths[0]).resolve(strict=False) != fallback_path.resolve(strict=False):
+            paths.append(fallback_path)
+        payload, error = _load_first_benchmark_payload(paths)
+        experiment_dir = _experiment_dir_for_state(store, state)
+        return dataclass_to_dict(
+            _convergence_payload_with_train_log_fallback(
+                run_id,
+                "experiment_state",
+                payload,
+                metric,
+                experiment_dir,
+                error,
+            )
+        )
+
+    @app.get("/api/backups/{backup_id}/convergence")
+    async def get_backup_convergence(backup_id: str, metric: str = "reward"):
+        _validate_convergence_metric(metric)
+        backup = _find_backup(store, backup_id)
+        if backup is None:
+            raise HTTPException(status_code=404, detail="Backup not found")
+        source_type = "archive" if backup.backup_type == "archive" else "backup"
+        payload, error = _load_backup_benchmark_payload(backup)
+        experiment_dir = Path(backup.experiment_dir) if backup.experiment_dir else None
+        return dataclass_to_dict(
+            _convergence_payload_with_train_log_fallback(
+                backup.backup_id,
+                source_type,
+                payload,
+                metric,
+                experiment_dir,
+                error,
+            )
+        )
+
     @app.get("/api/backups/{backup_id}/logs/{algorithm}/stdout")
     async def get_backup_stdout_log(backup_id: str, algorithm: str):
         return _backup_log_tail_payload(store, backup_id, algorithm, "stdout")
@@ -171,6 +230,30 @@ def register_routes(app: FastAPI, store: DashboardStateStore) -> None:
 
     @app.get("/api/runs/{run_id}/benchmark")
     async def get_benchmark_export(run_id: str):
+        state = store.get_run_state(run_id)
+        if state is None:
+            raise HTTPException(status_code=404, detail="Run not found")
+
+        # For benchmark-only runs, use the physical benchmark_export_path from state
+        if state.source_type in {"benchmark_export", "mainline_a_benchmark"}:
+            if not state.benchmark_export_path:
+                return {"run_id": run_id, "exists": False, "results": []}
+            path = Path(state.benchmark_export_path)
+            payload, error = safe_read_json_file(path)
+            if payload is None and error is None:
+                return {"run_id": run_id, "exists": False, "results": []}
+            if error:
+                return {"run_id": run_id, "exists": True, "transient_error": error, "results": []}
+            if isinstance(payload, list):
+                return {"run_id": run_id, "exists": True, "results": payload}
+            return {
+                "run_id": run_id,
+                "exists": True,
+                "transient_error": f"invalid json file: {path}",
+                "results": [],
+            }
+
+        # For experiment_state runs, use configured benchmark_export_path
         path = benchmark_export_path(store.config, run_id)
         payload, error = safe_read_json_file(path)
         if payload is None and error is None:
@@ -189,7 +272,27 @@ def register_routes(app: FastAPI, store: DashboardStateStore) -> None:
     @app.get("/api/compare")
     async def compare(run_ids: str = "", metric: str = "reward"):
         try:
-            return store.get_compare_payload(_parse_run_ids(run_ids), metric)
+            run_ids_param = _parse_run_ids(run_ids)
+            response = store.get_compare_payload(run_ids_param, metric)
+
+            # M14-S3: Evidence mixing detection
+            evidence_levels: list[str] = []
+            for run_id in run_ids_param:
+                state = store.get_run_state(run_id)
+                if state and state.evidence_level:
+                    evidence_levels.append(state.evidence_level)
+
+            unique_levels = list(set(evidence_levels))
+            evidence_mixed = len(unique_levels) > 1
+            warning = ""
+            if evidence_mixed:
+                warning = "Compared runs have different evidence levels."
+
+            response["evidence_mixed"] = evidence_mixed
+            response["evidence_levels"] = unique_levels
+            response["warning"] = warning
+
+            return response
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -202,6 +305,102 @@ def register_routes(app: FastAPI, store: DashboardStateStore) -> None:
     async def export_markdown(run_ids: str = ""):
         content = results_to_markdown(_selected_states(store, run_ids))
         return Response(content=content, media_type="text/markdown")
+
+    @app.get("/api/mainline-a/diagnostics")
+    async def mainline_a_diagnostics():
+        config = store.config
+        notes: list[str] = []
+
+        try:
+            # Runtime roots
+            roots = paper2_runtime_roots(config)
+
+            # Benchmark files scan
+            benchmark_files: list[dict] = []
+            scan_dirs = benchmark_scan_roots(config)
+            for scan_dir in scan_dirs:
+                if not Path(scan_dir).exists():
+                    continue
+                for glob_pattern in config.benchmark_file_globs:
+                    try:
+                        for file_path in sorted(Path(scan_dir).glob(glob_pattern)):
+                            if file_path.suffix in (".tmp", ".bak", ".err"):
+                                continue
+                            try:
+                                info: dict = {
+                                    "path": str(file_path),
+                                    "exists": file_path.exists(),
+                                    "schema": "unknown",
+                                    "algorithms": 0,
+                                }
+                                try:
+                                    with file_path.open("r", encoding="utf-8", errors="replace") as f:
+                                        payload = json.load(f)
+                                    if isinstance(payload, list):
+                                        info["algorithms"] = len([i for i in payload if isinstance(i, dict) and i.get("algorithm")])
+                                        has_mla = any(
+                                            isinstance(i, dict) and any(k in i for k in ("evidence_level", "oracle_gap", "composite_score"))
+                                            for i in payload if isinstance(i, dict)
+                                        )
+                                        info["schema"] = "mainline_a" if has_mla else "legacy"
+                                except Exception:
+                                    info["schema"] = "parse_error"
+                                benchmark_files.append(info)
+                            except Exception:
+                                pass
+                    except Exception:
+                        notes.append(f"glob scan failed for {scan_dir} / {glob_pattern}")
+
+            # Launch.json check
+            launch_json: dict = {"path": "", "exists": False, "has_direct_full17": False, "configs": []}
+            paper2_root = config.paper2_root
+            if paper2_root is not None:
+                launch_path = Path(paper2_root) / ".vscode" / "launch.json"
+                launch_json["path"] = str(launch_path)
+                launch_json["exists"] = launch_path.exists()
+                if launch_path.exists():
+                    try:
+                        with launch_path.open("r", encoding="utf-8", errors="replace") as f:
+                            lj = json.load(f)
+                        configs = lj.get("configurations", []) if isinstance(lj, dict) else []
+                        launch_json["configs"] = [c.get("name", "") for c in configs if isinstance(c, dict)]
+                        for c in configs:
+                            name = c.get("name", "") if isinstance(c, dict) else ""
+                            args_list = c.get("args", []) if isinstance(c, dict) else []
+                            all_text = name + " " + " ".join(str(a) for a in args_list)
+                            if "benchmark" in all_text.lower() and ("all" in all_text.lower() or "full" in all_text.lower() or "17" in all_text):
+                                launch_json["has_direct_full17"] = True
+                                break
+                    except Exception as e:
+                        notes.append(f"launch.json read error: {e}")
+
+            return {
+                "paper2_root": str(roots["paper2_root"]) if roots["paper2_root"] else None,
+                "paper2_python": str(roots["paper2_python"]) if roots["paper2_python"] else None,
+                "mainline_a_enabled": config.mainline_a_enabled,
+                "experiments_dir": str(roots["experiments_dir"]) if roots["experiments_dir"] else None,
+                "results_dir": str(roots["results_dir"]) if roots["results_dir"] else None,
+                "figures_dir": str(roots["figures_dir"]) if roots["figures_dir"] else None,
+                "logs_dir": str(roots["logs_dir"]) if roots["logs_dir"] else None,
+                "benchmark_scan_dirs": [str(d) for d in scan_dirs],
+                "benchmark_files": benchmark_files,
+                "launch_json": launch_json,
+                "notes": notes,
+            }
+        except Exception as e:
+            return {
+                "paper2_root": None,
+                "paper2_python": None,
+                "mainline_a_enabled": getattr(config, "mainline_a_enabled", False),
+                "experiments_dir": None,
+                "results_dir": None,
+                "figures_dir": None,
+                "logs_dir": None,
+                "benchmark_scan_dirs": [],
+                "benchmark_files": [],
+                "launch_json": {"path": "", "exists": False, "has_direct_full17": False, "configs": []},
+                "notes": [f"diagnostics error: {e}"],
+            }
 
     @app.post("/api/shutdown")
     async def shutdown():
@@ -256,6 +455,149 @@ def _find_backup(store: DashboardStateStore, backup_id: str):
     for backup in _discover_backups(store):
         if backup.backup_id == backup_id or backup.run_id == backup_id:
             return backup
+    return None
+
+
+def _validate_convergence_metric(metric: str) -> None:
+    if metric not in PAPER2_CONVERGENCE_METRICS:
+        raise HTTPException(status_code=400, detail=f"Unsupported convergence metric: {metric}")
+
+
+def _empty_convergence_payload(run_id: str, source_type: str, metric: str, reason: str):
+    return RunConvergencePayload(
+        run_id=run_id,
+        source_type=source_type,
+        metrics=[metric],
+        algorithms=[],
+        series=[],
+        missing_reason=reason,
+    )
+
+
+def _convergence_payload_with_train_log_fallback(
+    run_id: str,
+    source_type: str,
+    benchmark_payload: list[dict],
+    metric: str,
+    experiment_dir: Path | None,
+    benchmark_error: str = "",
+):
+    benchmark_result = load_convergence_payload(run_id, source_type, benchmark_payload, metric)
+    if benchmark_result.series:
+        return benchmark_result
+
+    train_log_records = _load_experiment_train_log_records(experiment_dir)
+    train_log_result = load_train_log_convergence_payload(run_id, source_type, train_log_records, metric)
+    if train_log_result.series:
+        return train_log_result
+
+    reason_parts = []
+    if benchmark_error:
+        reason_parts.append(benchmark_error)
+    elif benchmark_result.missing_reason:
+        reason_parts.append(benchmark_result.missing_reason)
+    if train_log_result.missing_reason:
+        reason_parts.append(train_log_result.missing_reason)
+    return _empty_convergence_payload(run_id, source_type, metric, " and ".join(reason_parts))
+
+
+def _experiment_dir_for_state(store: DashboardStateStore, state: RunState) -> Path | None:
+    if state.run_manifest_path:
+        return Path(state.run_manifest_path).parent
+    if store.config.experiments_dir is not None:
+        return Path(store.config.experiments_dir) / state.run_id
+    return None
+
+
+def _load_first_benchmark_payload(paths: list[Path]) -> tuple[list[dict], str]:
+    for path in paths:
+        path = Path(path)
+        if not path.exists():
+            continue
+        try:
+            return load_benchmark_payload(path), ""
+        except ValueError:
+            return [], f"invalid benchmark json: {path}"
+    return [], "benchmark export has no convergence_by_seed"
+
+
+def _load_backup_benchmark_payload(backup) -> tuple[list[dict], str]:
+    if not backup.benchmark_archive_dir:
+        return [], "benchmark export has no convergence_by_seed"
+
+    archive_dir = Path(backup.benchmark_archive_dir)
+    paths: list[Path] = []
+    if backup.backup_type == "archive" or not backup.experiment_dir:
+        paths = [archive_dir / name for name in backup.benchmark_files]
+    else:
+        first_path = _first_backup_benchmark_file(backup)
+        paths = [first_path] if first_path is not None else []
+
+    payload: list[dict] = []
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            payload.extend(load_benchmark_payload(path))
+        except ValueError:
+            return [], f"invalid benchmark json: {path}"
+    return payload, ""
+
+
+def _load_experiment_train_log_records(experiment_dir: Path | None) -> list[dict]:
+    if experiment_dir is None:
+        return []
+    experiment_dir = Path(experiment_dir)
+    if not experiment_dir.exists() or not experiment_dir.is_dir():
+        return []
+
+    run_payload, _ = safe_read_json_file(experiment_dir / "run.json")
+    specs: list[dict] = []
+    seen: set[str] = set()
+    if isinstance(run_payload, dict) and isinstance(run_payload.get("algorithms"), list):
+        for item in run_payload["algorithms"]:
+            if not isinstance(item, dict) or not item.get("name"):
+                continue
+            algorithm = str(item["name"])
+            specs.append(
+                {
+                    "algorithm": algorithm,
+                    "seed": item.get("seed"),
+                    "train_timesteps": item.get("timesteps") or item.get("train_timesteps"),
+                }
+            )
+            seen.add(algorithm.lower())
+
+    artifacts_dir = experiment_dir / "artifacts"
+    if artifacts_dir.exists() and artifacts_dir.is_dir():
+        for artifact_dir in sorted(artifacts_dir.iterdir()):
+            if artifact_dir.is_dir() and artifact_dir.name.lower() not in seen:
+                specs.append({"algorithm": artifact_dir.name})
+
+    records: list[dict] = []
+    for spec in specs:
+        algorithm = str(spec.get("algorithm") or "")
+        if not algorithm:
+            continue
+        train_log_path = _first_existing_path(
+            [
+                artifacts_dir / algorithm / "checkpoints" / "train_logs.json",
+                artifacts_dir / algorithm / "train_logs.json",
+            ]
+        )
+        if train_log_path is None:
+            continue
+        train_log_payload, _ = safe_read_json_file(train_log_path)
+        if not isinstance(train_log_payload, dict):
+            continue
+        records.append({**spec, "train_log": train_log_payload})
+    return records
+
+
+def _first_existing_path(paths: list[Path]) -> Path | None:
+    for path in paths:
+        if path.exists() and path.is_file():
+            return path
     return None
 
 

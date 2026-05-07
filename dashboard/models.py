@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 ExperimentStatus = Literal["initialized", "running", "stop_requested", "stopped", "completed", "failed"]
 AlgorithmStatus = Literal["pending", "running", "completed", "interrupted", "failed", "skipped"]
-SourceType = Literal["experiment_state", "legacy_structured", "legacy_log", "mixed", "placeholder", "backup", "archive"]
+SourceType = Literal["experiment_state", "legacy_structured", "legacy_log", "mixed", "placeholder", "backup", "archive", "benchmark_export", "mainline_a_benchmark"]
 RunStatus = Literal[
     "idle",
     "running",
@@ -48,6 +48,15 @@ class AlgorithmResult:
     final_eval: dict[str, Any] = field(default_factory=dict)
     source: ResultSource = "log"
     status: ResultStatus = "finished"
+    scenario: str = ""
+    stage: str = ""
+    evidence_level: str = ""
+    boundary_note: str = ""
+    composite_score: float | None = None
+    oracle_gap: float | None = None
+    deadline_violation_rate: float | None = None
+    constraint_violation_rate: float | None = None
+    raw_metrics: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -175,6 +184,36 @@ class DeleteResult:
 
 
 @dataclass
+class ConvergencePoint:
+    step: int
+    value: float | None
+    seed: str = ""
+
+
+@dataclass
+class ConvergenceSeries:
+    algorithm: str
+    metric: str
+    label: str
+    eval_interval: int
+    seed_series: dict[str, list[ConvergencePoint]] = field(default_factory=dict)
+    mean: list[ConvergencePoint] = field(default_factory=list)
+    std: list[ConvergencePoint] = field(default_factory=list)
+    converged: bool = False
+    convergence_reason: str = ""
+
+
+@dataclass
+class RunConvergencePayload:
+    run_id: str
+    source_type: str = ""
+    metrics: list[str] = field(default_factory=list)
+    algorithms: list[str] = field(default_factory=list)
+    series: list[ConvergenceSeries] = field(default_factory=list)
+    missing_reason: str = ""
+
+
+@dataclass
 class RunMeta:
     run_id: str
     created_at: str = ""
@@ -206,6 +245,10 @@ class RunDescriptor:
     stderr_file: Path | None = None
     summary_file: Path | None = None
     meta_file: Path | None = None
+    benchmark_only: bool = False
+    benchmark_label: str = ""
+    benchmark_stage: str = ""
+    evidence_level: str = ""
 
 
 @dataclass
@@ -222,6 +265,8 @@ class RunSummary:
     has_error: bool = False
     last_error: str = ""
     is_placeholder: bool = False
+    evidence_level: str = ""
+    evidence_boundary: str = ""
 
 
 @dataclass
@@ -263,6 +308,9 @@ class RunState:
     log_offsets: dict[str, int] = field(default_factory=dict)
     event_offsets: dict[str, int] = field(default_factory=dict)
     last_log_time: float = field(default_factory=time.time)
+    evidence_level: str = ""
+    evidence_boundary: str = ""
+    benchmark_schema: str = ""
 
 
 def dataclass_to_dict(obj: Any) -> Any:

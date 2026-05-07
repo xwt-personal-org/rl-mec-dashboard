@@ -11,6 +11,7 @@ from dashboard.experiment_reader import safe_read_json_file
 from dashboard.models import DeletePreview, DeleteResult, DeleteTarget
 from dashboard.run_discovery import (
     discover_archive_only_backups,
+    discover_benchmark_exports,
     discover_experiment_backups_from_roots,
     discover_runs,
     enrich_backup_figures,
@@ -148,6 +149,37 @@ class LocalDataDeleteService:
                         target_id="benchmark_json:latest",
                         target_type="benchmark_json",
                         display_name="Global benchmark.json",
+                        paths=paths,
+                    )
+                )
+
+        # M14-S5: benchmark-only export targets (mainline-a / direct scan)
+        benchmark_descriptors = discover_benchmark_exports(self.config)
+        for bd in benchmark_descriptors:
+            if bd.benchmark_export_file is not None:
+                paths = self._claim_paths([bd.benchmark_export_file], claimed_paths)
+                if paths:
+                    targets.append(
+                        DeleteTarget(
+                            target_id=f"benchmark_export:{bd.run_id}",
+                            target_type="benchmark_export",
+                            display_name=bd.display_name or bd.run_id,
+                            source_run_id=bd.run_id,
+                            paths=paths,
+                        )
+                    )
+
+        # M14-S5: Global benchmark.json as benchmark_export target
+        benchmark_json_target = Path(self.config.results_dir) / "benchmark.json"
+        if benchmark_json_target.exists():
+            paths = self._claim_paths([benchmark_json_target], claimed_paths)
+            if paths:
+                targets.append(
+                    DeleteTarget(
+                        target_id="benchmark_export:benchmark_json_latest",
+                        target_type="benchmark_export",
+                        display_name="Global Benchmark JSON",
+                        source_run_id="benchmark_json_latest",
                         paths=paths,
                     )
                 )

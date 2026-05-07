@@ -26,6 +26,9 @@ CSV_COLUMNS = [
     "result_path",
     "status",
     "source",
+    "evidence_level",
+    "scenario",
+    "oracle_gap",
 ]
 
 MARKDOWN_COLUMNS = [
@@ -41,6 +44,9 @@ MARKDOWN_COLUMNS = [
     "Device",
     "Timesteps",
     "Status",
+    "Evidence",
+    "Scenario",
+    "Oracle Gap",
 ]
 
 
@@ -64,6 +70,9 @@ def normalize_result_row(run_id: str, result: AlgorithmResult) -> dict[str, str]
         "result_path": _stringify(result.result_path),
         "status": _stringify(result.status),
         "source": _stringify(result.source),
+        "evidence_level": _stringify(result.evidence_level),
+        "scenario": _stringify(result.scenario),
+        "oracle_gap": _stringify(result.oracle_gap),
     }
 
 
@@ -92,6 +101,9 @@ def results_to_markdown(states: list[RunState]) -> str:
             row["device"],
             row["train_timesteps"],
             row["status"],
+            row["evidence_level"],
+            row["scenario"],
+            row["oracle_gap"],
         ]
         for state in states
         for row in (normalize_result_row(state.run_id, result) for result in state.results)

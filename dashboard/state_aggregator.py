@@ -20,7 +20,7 @@ class RunStateAggregator:
         self.config = config
 
     def initialize_state(self, descriptor: RunDescriptor) -> RunState:
-        return RunState(
+        state = RunState(
             run_id=descriptor.run_id,
             source_type=descriptor.source_type,
             stdout_file=str(descriptor.stdout_file or ""),
@@ -28,7 +28,16 @@ class RunStateAggregator:
             has_structured_protocol=_is_legacy_structured_source(descriptor.source_type),
             last_log_time=descriptor.mtime,
             updated_at=descriptor.mtime,
+            # M14-S1: evidence fields from descriptor
+            evidence_level=descriptor.evidence_level or "",
+            evidence_boundary="",
+            benchmark_schema="",
         )
+        # For benchmark source types, set default evidence boundary
+        if descriptor.source_type in ("benchmark_export", "mainline_a_benchmark"):
+            state.evidence_boundary = "Do not promote artifact-level evidence into stronger formal benchmark conclusions."
+            state.benchmark_schema = "mainline_a" if descriptor.source_type == "mainline_a_benchmark" else "benchmark_export"
+        return state
 
     def apply_structured_events(self, state: RunState, events: list[dict[str, Any]]) -> RunState:
         for event in events:
@@ -222,8 +231,54 @@ class RunStateAggregator:
             self.merge_results(state, fallback_results)
         return state
 
+    def scan_benchmark_export_once(self, descriptor: RunDescriptor, state: RunState) -> RunState:
+        """Build RunState from a benchmark-only export file (no experiment directory)."""
+        state.run_id = descriptor.run_id
+        state.display_name = descriptor.display_name or descriptor.run_id
+        state.source_type = descriptor.source_type
+        state.status = "finished"
+        state.current_algorithm = ""
+        state.current_step = 0
+        state.total_step = 0
+        state.progress_pct = 100.0
+        state.overall_progress = 100.0
+        state.it_per_sec = 0.0
+        state.eta_seconds = 0
+        state.elapsed_seconds = 0.0
+        state.process_alive = False
+        state.process_marker_exists = False
+        state.possibly_stale = False
+        state.has_structured_protocol = False
+        state.benchmark_export_path = str(descriptor.benchmark_export_file or "")
+
+        # Evidence fields
+        state.evidence_level = descriptor.evidence_level or "benchmark evidence pending review"
+        state.evidence_boundary = "Do not promote artifact-level evidence into stronger formal benchmark conclusions."
+        state.benchmark_schema = "mainline_a" if descriptor.source_type == "mainline_a_benchmark" else "benchmark_export"
+
+        # Load results from benchmark file
+        results: list[AlgorithmResult] = []
+        if descriptor.benchmark_export_file and Path(descriptor.benchmark_export_file).exists():
+            results = load_benchmark_results(descriptor.benchmark_export_file)
+
+        state.results = results
+        completed = [r.algorithm for r in results if r.algorithm]
+        state.completed_algorithms = completed
+        state.total_algorithms = len(results)
+
+        # Recalculate progress
+        if state.total_algorithms > 0:
+            state.progress_pct = round(len(completed) / state.total_algorithms * 100, 2)
+
+        state.updated_at = time.time()
+        return state
+
     def scan_once(self, descriptor: RunDescriptor, state: RunState) -> RunState:
         try:
+            # M13-S4: benchmark-only exports
+            if descriptor.source_type in {"benchmark_export", "mainline_a_benchmark"}:
+                return self.scan_benchmark_export_once(descriptor, state)
+
             if descriptor.source_type in {"experiment_state", "placeholder"}:
                 return self.scan_experiment_once(descriptor, state)
 

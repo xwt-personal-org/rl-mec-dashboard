@@ -55,7 +55,7 @@
         .topbar, .filters, .charts-grid { margin-bottom: 0; }
         .panel, .status-bar { margin-bottom: 0; }
         .topbar { display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; flex: 1; }
-        .topbar select, .filters select, .filters input, .compare-controls select, .log-controls select, .log-controls input {
+        .topbar select, .filters select, .filters input, .compare-controls select, .convergence-controls select, .log-controls select, .log-controls input {
             min-height: 36px;
             background: var(--panel-muted);
             color: var(--text);
@@ -119,6 +119,14 @@
         .progress-bar-fill.overall { background: var(--green); }
         .charts-grid, .logs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
         .chart-container { height: 260px; position: relative; }
+        .convergence-panel h2 { align-items: center; }
+        .convergence-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+        .convergence-controls select { min-width: 150px; }
+        .algorithm-tabs { display: flex; gap: 8px; flex-wrap: wrap; min-width: 0; }
+        .algorithm-tab { border: 1px solid var(--line); background: var(--panel-muted); color: var(--text); border-radius: 6px; padding: 7px 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
+        .algorithm-tab.active { border-color: var(--blue); background: rgba(77, 125, 255, 0.2); color: #eef3ff; }
+        .algorithm-tab:disabled { opacity: 0.44; cursor: not-allowed; }
+        .convergence-chart-container { height: 320px; }
         .table-wrap { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; }
         th, td { border-bottom: 1px solid var(--line-soft); padding: 8px 10px; text-align: left; font-size: 0.82rem; white-space: nowrap; }
@@ -130,6 +138,13 @@
         .badge-stalled, .badge-failed, .badge-interrupted { background: #8c2d2d; }
         .badge-degraded, .badge-warn { background: #8a5a10; }
         .badge-idle, .badge-historical, .badge-initialized, .badge-pending, .badge-placeholder, .badge-skipped, .badge-stopped { background: #4d5a70; }
+        .evidence-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:0.7em;font-weight:600;margin-left:6px;vertical-align:middle}
+        .evidence-smoke{background:#e3f2fd;color:#1565c0}
+        .evidence-oracle{background:#e8f5e9;color:#2e7d32}
+        .evidence-probe{background:#fff3e0;color:#e65100}
+        .evidence-ood{background:#fce4ec;color:#c62828}
+        .evidence-pending{background:#f3e5f5;color:#6a1b9a}
+        .evidence-boundary-warning{background:#fff8e1;border:1px solid #ffc107;border-radius:4px;padding:8px 12px;margin:8px 0;font-size:0.85em;color:#5d4037}
         .current-row { outline: 1px solid var(--blue); background: var(--blue-soft); }
         .mini-btn { min-height: 28px; border: 1px solid var(--line); border-radius: 5px; color: var(--text); background: #20304b; padding: 4px 8px; cursor: pointer; margin-right: 4px; }
         .mini-btn.active { background: var(--blue); border-color: #82a0ff; }
@@ -158,7 +173,8 @@
             .app-header { padding: 14px; }
             .status-bar { grid-template-columns: 1fr; }
             .topbar select { width: 100%; }
-            .filters select, .filters input, .filters .btn, .log-controls select, .log-controls input { width: 100%; }
+            .filters select, .filters input, .filters .btn, .convergence-controls select, .log-controls select, .log-controls input { width: 100%; }
+            .convergence-controls { align-items: stretch; }
             th, td { padding: 8px; }
         }
     </style>
@@ -168,7 +184,7 @@
         <header class="app-header">
             <div class="title-block">
                 <h1 data-i18n="app.title">RL-MEC Training Dashboard</h1>
-                <div class="title-kicker"><span id="run-info" data-i18n="top.noRunSelected">No run selected</span></div>
+                <div class="title-kicker"><span id="run-info" data-i18n="top.noRunSelected">No run selected</span><span id="evidence-boundary-container"></span></div>
             </div>
 
             <div class="topbar">
@@ -239,6 +255,26 @@
             </div>
         </section>
 
+        <section class="panel convergence-panel">
+            <h2>
+                <span data-i18n="convergence.title">Convergence</span>
+                <button class="mini-btn" onclick="loadConvergence()" data-i18n="action.refreshConvergence">Refresh Convergence</button>
+            </h2>
+            <div class="convergence-controls">
+                <select id="convergence-metric" onchange="loadConvergence()">
+                    <option value="reward" data-i18n="results.reward">Reward</option>
+                    <option value="latency" data-i18n="results.latency">Latency</option>
+                    <option value="energy" data-i18n="results.energy">Energy</option>
+                    <option value="comm_score">Comm Score</option>
+                </select>
+                <div id="convergence-algorithm-tabs" class="algorithm-tabs"></div>
+            </div>
+            <div id="convergence-empty" class="muted" style="margin-bottom:8px;"></div>
+            <div class="chart-container convergence-chart-container">
+                <canvas id="convergenceChart"></canvas>
+            </div>
+        </section>
+
         <section class="panel">
             <h2 data-i18n="backup.title">Backups</h2>
             <div id="backup-content" class="empty" data-i18n="backup.none">No backups found for this run.</div>
@@ -288,9 +324,13 @@
                             <th data-i18n="chart.trainTime">Train Time</th>
                             <th data-i18n="table.status">Status</th>
                             <th data-i18n="results.source">Source</th>
+                            <th>Evidence</th>
+                            <th>Scenario</th>
+                            <th>CV Rate</th>
+                            <th>Oracle Gap</th>
                         </tr>
                     </thead>
-                    <tbody id="results-body"><tr><td colspan="11" class="empty" data-i18n="results.noResults">No results yet</td></tr></tbody>
+                    <tbody id="results-body"><tr><td colspan="15" class="empty" data-i18n="results.noResults">No results yet</td></tr></tbody>
                 </table>
             </div>
         </section>
@@ -371,6 +411,7 @@
                 'action.exportCsv': 'Export CSV',
                 'action.exportMarkdown': 'Export Markdown',
                 'action.refreshBenchmark': 'Refresh Benchmark',
+                'action.refreshConvergence': 'Refresh Convergence',
                 'connection.disconnected': 'Disconnected. Reconnecting...',
                 'panel.runOverview': 'Run Overview',
                 'filter.allStatuses': 'All statuses',
@@ -475,6 +516,12 @@
                 'chart.trainTime': 'Train Time',
                 'chart.noCompletedResults': 'No completed algorithm results yet',
                 'chart.loadingBenchmark': 'Loading benchmark export...',
+                'convergence.title': 'Convergence',
+                'convergence.loading': 'Loading convergence data...',
+                'convergence.noData': 'No convergence data found in benchmark JSON or train logs.',
+                'convergence.noAlgorithm': 'Select an algorithm with convergence data.',
+                'convergence.step': 'Step',
+                'convergence.convergedMark': ' ✓',
                 'results.title': 'Algorithm Results',
                 'results.noResults': 'No results yet',
                 'results.environment': 'Environment',
@@ -524,6 +571,7 @@
                 'action.exportCsv': '导出 CSV',
                 'action.exportMarkdown': '导出 Markdown',
                 'action.refreshBenchmark': '刷新 Benchmark',
+                'action.refreshConvergence': '刷新收敛曲线',
                 'connection.disconnected': '连接已断开，正在重连...',
                 'panel.runOverview': '运行概览',
                 'filter.allStatuses': '全部状态',
@@ -628,6 +676,12 @@
                 'chart.trainTime': '训练时间',
                 'chart.noCompletedResults': '暂无已完成算法结果',
                 'chart.loadingBenchmark': '正在加载 benchmark 导出...',
+                'convergence.title': '收敛曲线',
+                'convergence.loading': '正在加载收敛数据...',
+                'convergence.noData': 'Benchmark JSON 或 train_logs.json 中未找到 convergence 数据。',
+                'convergence.noAlgorithm': '请选择有收敛数据的算法。',
+                'convergence.step': 'Step',
+                'convergence.convergedMark': ' ✓',
                 'results.title': '算法结果',
                 'results.noResults': '暂无结果',
                 'results.environment': '环境',
@@ -676,6 +730,8 @@
             currentRunBackups: [],
             deleteTargets: [],
             pendingDeletePreview: null,
+            convergencePayload: null,
+            selectedConvergenceAlgorithm: "",
             currentRunId: null,
             currentSelectionType: 'run',
             currentSelectionValue: null,
@@ -686,7 +742,7 @@
             comparePayload: null,
             selectedLog: { runId: null, algorithm: null, stream: 'stdout' },
             filters: { status: 'all', keyword: '', logLevel: 'all', logKeyword: '', autoScroll: true },
-            charts: { rewardChart: null, timeChart: null, compareChart: null },
+            charts: { rewardChart: null, timeChart: null, compareChart: null, convergenceChart: null },
             sse: { eventSource: null, reconnectTimer: null, connected: false }
         };
 
@@ -757,6 +813,8 @@
             renderBackupDiagnostics(dashboardState.backupDiagnostics);
             renderDeleteTargets(dashboardState.deleteTargets);
             renderDeletePreview(dashboardState.pendingDeletePreview);
+            renderConvergenceControls(dashboardState.convergencePayload);
+            renderConvergenceChart();
             renderCompareState();
         }
 
@@ -900,6 +958,167 @@
             return dashboardState.deleteTargets;
         }
 
+        async function loadConvergence() {
+            const endpoint = currentConvergenceEndpoint();
+            const empty = document.getElementById('convergence-empty');
+            if (!endpoint) {
+                dashboardState.convergencePayload = null;
+                dashboardState.selectedConvergenceAlgorithm = "";
+                renderConvergenceControls(null);
+                destroyConvergenceChart();
+                if (empty) empty.textContent = t('convergence.noData');
+                return null;
+            }
+            if (empty) empty.textContent = t('convergence.loading');
+            try {
+                const payload = await apiGetJson(endpoint);
+                dashboardState.convergencePayload = payload;
+                renderConvergenceControls(payload);
+                renderConvergenceChart();
+                return payload;
+            } catch (error) {
+                dashboardState.convergencePayload = null;
+                dashboardState.selectedConvergenceAlgorithm = "";
+                renderConvergenceControls(null);
+                destroyConvergenceChart();
+                if (empty) empty.textContent = error.message || t('convergence.noData');
+                return null;
+            }
+        }
+
+        function currentConvergenceEndpoint() {
+            const runId = dashboardState.currentRunId;
+            if (!runId) return "";
+            const metricSelect = document.getElementById('convergence-metric');
+            const metric = metricSelect ? metricSelect.value : 'reward';
+            const query = '?metric=' + encodeURIComponent(metric || 'reward');
+            if (dashboardState.currentSelectionType === 'backup') {
+                return '/api/backups/' + encodeURIComponent(runId) + '/convergence' + query;
+            }
+            return '/api/runs/' + encodeURIComponent(runId) + '/convergence' + query;
+        }
+
+        function renderConvergenceControls(payload) {
+            const root = document.getElementById('convergence-algorithm-tabs');
+            if (!root) return;
+            const series = (payload && payload.series) || [];
+            const byAlgorithm = new Map(series.map(item => [item.algorithm, item]));
+            const resultAlgorithms = uniqueAlgorithms(((dashboardState.currentRunState || {}).results || []).map(item => item.algorithm));
+            const algorithms = resultAlgorithms.length ? resultAlgorithms : uniqueAlgorithms((payload && payload.algorithms) || []);
+            const firstAvailable = algorithms.find(algorithm => byAlgorithm.has(algorithm)) || "";
+            if (!dashboardState.selectedConvergenceAlgorithm || !byAlgorithm.has(dashboardState.selectedConvergenceAlgorithm)) {
+                dashboardState.selectedConvergenceAlgorithm = firstAvailable;
+            }
+            if (!algorithms.length) {
+                root.innerHTML = '<span class="muted">' + escapeHtml(t('convergence.noAlgorithm')) + '</span>';
+                return;
+            }
+            root.innerHTML = algorithms.map(algorithm => {
+                const item = byAlgorithm.get(algorithm);
+                const active = item && algorithm === dashboardState.selectedConvergenceAlgorithm ? ' active' : '';
+                const disabled = item ? '' : ' disabled';
+                const mark = item && item.converged ? t('convergence.convergedMark') : '';
+                return '<button type="button" class="algorithm-tab' + active + '"' + disabled +
+                    ' onclick="selectConvergenceAlgorithm(\'' + escapeAttr(algorithm) + '\')">' +
+                    escapeHtml(algorithm + mark) + '</button>';
+            }).join('');
+        }
+
+        function selectConvergenceAlgorithm(algorithm) {
+            dashboardState.selectedConvergenceAlgorithm = algorithm;
+            renderConvergenceControls(dashboardState.convergencePayload);
+            renderConvergenceChart();
+        }
+
+        function renderConvergenceChart() {
+            const empty = document.getElementById('convergence-empty');
+            const payload = dashboardState.convergencePayload;
+            const algorithm = dashboardState.selectedConvergenceAlgorithm;
+            const series = ((payload && payload.series) || []).find(item => item.algorithm === algorithm);
+            if (!series) {
+                destroyConvergenceChart();
+                if (empty) {
+                    empty.textContent = payload && payload.missing_reason
+                        ? payload.missing_reason
+                        : t('convergence.noData');
+                }
+                return;
+            }
+            if (empty) empty.textContent = series.convergence_reason || '';
+            const chart = ensureConvergenceChart(series);
+            chart.data.labels = (series.mean || []).map(point => point.step);
+            chart.data.datasets = [{
+                label: series.algorithm + ' ' + series.label,
+                data: (series.mean || []).map(point => point.value),
+                borderColor: ALGO_COLORS[series.algorithm] || '#5f83ff',
+                backgroundColor: 'rgba(95, 131, 255, 0.16)',
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                tension: 0.25,
+                spanGaps: false,
+                fill: false
+            }];
+            chart.options.plugins.tooltip = convergenceTooltipOptions(series);
+            chart.options.scales.x.title.text = t('convergence.step');
+            chart.options.scales.y.title.text = series.label;
+            chart.update('none');
+        }
+
+        function ensureConvergenceChart(series) {
+            if (dashboardState.charts.convergenceChart) return dashboardState.charts.convergenceChart;
+            const canvas = document.getElementById('convergenceChart');
+            dashboardState.charts.convergenceChart = new Chart(canvas, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: convergenceChartOptions(series)
+            });
+            return dashboardState.charts.convergenceChart;
+        }
+
+        function convergenceChartOptions(series) {
+            const options = chartOptions();
+            options.interaction = { mode: 'index', intersect: false };
+            options.plugins.tooltip = convergenceTooltipOptions(series);
+            options.scales.x.title = { display: true, color: '#bfcae1', text: t('convergence.step') };
+            options.scales.y.title = { display: true, color: '#bfcae1', text: series ? series.label : '' };
+            return options;
+        }
+
+        function convergenceTooltipOptions(series) {
+            return {
+                callbacks: {
+                    label: function(context) {
+                        const index = context.dataIndex;
+                        const value = context.parsed.y;
+                        const stdPoint = series && series.std ? series.std[index] : null;
+                        const std = stdPoint && stdPoint.value !== null && stdPoint.value !== undefined
+                            ? ' +/- ' + fmtVal(stdPoint.value, 4)
+                            : '';
+                        return context.dataset.label + ': ' + fmtVal(value, 4) + std;
+                    }
+                }
+            };
+        }
+
+        function destroyConvergenceChart() {
+            if (dashboardState.charts.convergenceChart) {
+                dashboardState.charts.convergenceChart.destroy();
+                dashboardState.charts.convergenceChart = null;
+            }
+        }
+
+        function uniqueAlgorithms(values) {
+            const seen = new Set();
+            const algorithms = [];
+            for (const value of values || []) {
+                const algorithm = String(value || '').trim();
+                if (!algorithm || seen.has(algorithm)) continue;
+                seen.add(algorithm);
+                algorithms.push(algorithm);
+            }
+            return algorithms;
+        }
+
         async function previewDeleteTarget(targetId) {
             const preview = await apiPostJson('/api/delete-preview', { target_id: targetId });
             dashboardState.pendingDeletePreview = preview;
@@ -922,6 +1141,9 @@
                     confirm_token: preview.confirm_token
                 });
                 dashboardState.pendingDeletePreview = null;
+                dashboardState.convergencePayload = null;
+                dashboardState.selectedConvergenceAlgorithm = "";
+                destroyConvergenceChart();
                 document.getElementById('delete-confirm-input').value = '';
                 document.getElementById('delete-message').textContent = t('delete.success', { count: (result.deleted_paths || []).length });
                 await loadRuns();
@@ -939,11 +1161,14 @@
                 if (dashboardState.currentRunId) {
                     closeSSE();
                     await fetchInitialRunState(dashboardState.currentSelectionValue);
+                    await loadConvergence();
                     initSSE();
                 } else {
                     dashboardState.currentRunState = null;
                     document.getElementById('backup-content').className = 'empty';
                     document.getElementById('backup-content').textContent = t('backup.none');
+                    renderConvergenceControls(null);
+                    document.getElementById('convergence-empty').textContent = t('convergence.noData');
                 }
                 renderDeletePreview(null);
             } catch (error) {
@@ -1001,7 +1226,7 @@
                 const latestBackup = run.is_placeholder ? null : latestBackupForRun(run.run_id);
                 const backupRow = latestBackup ? '<span>' + escapeHtml(t('backup.latest')) + '</span><span>' + escapeHtml(formatBackupTimestamp(latestBackup.timestamp)) + '</span>' : '';
                 return '<div class="run-tile' + fixed + active + '" onclick="selectRun(\'run:' + escapeAttr(run.run_id) + '\')">' +
-                    '<div class="run-tile-header"><div><div class="run-id">' + escapeHtml(run.display_name || run.run_id) + '</div><div class="muted">' + escapeHtml(run.run_id) + '</div></div><label onclick="event.stopPropagation()" class="muted"><input type="checkbox" ' + checked + ' onchange="toggleCompareRun(\'' + escapeAttr(run.run_id) + '\', this.checked)"> ' + escapeHtml(t('run.compare')) + '</label></div>' +
+                    '<div class="run-tile-header"><div><div class="run-id">' + escapeHtml(run.display_name || run.run_id) + '</div><div class="muted">' + escapeHtml(run.run_id) + (run.evidence_level ? ' ' + renderEvidenceBadge(run.evidence_level) : '') + '</div></div><label onclick="event.stopPropagation()" class="muted"><input type="checkbox" ' + checked + ' onchange="toggleCompareRun(\'' + escapeAttr(run.run_id) + '\', this.checked)"> ' + escapeHtml(t('run.compare')) + '</label></div>' +
                     note +
                     '<div class="run-grid">' +
                     '<span>' + escapeHtml(t('run.status')) + '</span><span>' + getStatusBadge(run.status) + '</span>' +
@@ -1036,6 +1261,7 @@
             document.getElementById('run-select').value = selection.value;
             closeSSE();
             await fetchInitialRunState(selection.value);
+            await loadConvergence();
             renderRunSelect();
             renderRunOverview(dashboardState.runs);
             initSSE();
@@ -1050,7 +1276,7 @@
         function renderRunSelect() {
             const select = document.getElementById('run-select');
             const runOptions = orderRunsForOverview(dashboardState.runs)
-                .map(run => '<option value="run:' + escapeAttr(run.run_id) + '">' + escapeHtml(run.display_name || run.run_id) + '</option>')
+                .map(run => '<option value="run:' + escapeAttr(run.run_id) + '">' + escapeHtml(run.display_name || run.run_id) + (run.evidence_level ? ' [' + run.evidence_level + ']' : '') + '</option>')
                 .join('');
             const backupOptions = (dashboardState.backups || [])
                 .map(backup => '<option value="backup:' + escapeAttr(backup.backup_id) + '">' + escapeHtml('[Backup] ' + (backup.display_name || backup.source_run_id || backup.backup_id) + ' / ' + formatBackupTimestamp(backup.timestamp)) + '</option>')
@@ -1074,6 +1300,7 @@
                 name: state.display_name || state.run_id || '-',
                 source: state.source_type || 'unknown'
             });
+            document.getElementById('evidence-boundary-container').innerHTML = renderEvidenceBoundary(state);
         }
 
         function renderMetricCards(state) {
@@ -1338,23 +1565,43 @@
         function renderResultsTable(results) {
             const body = document.getElementById('results-body');
             if (!results.length) {
-                body.innerHTML = '<tr><td colspan="11" class="empty">' + escapeHtml(t('results.noResults')) + '</td></tr>';
+                body.innerHTML = '<tr><td colspan="15" class="empty">' + escapeHtml(t('results.noResults')) + '</td></tr>';
                 return;
             }
-            body.innerHTML = results.map(result => '<tr>' +
-                '<td>' + escapeHtml(result.algorithm || '-') + '</td>' +
-                '<td>' + escapeHtml(result.environment || '-') + '</td>' +
-                '<td>' + metricVal(result.reward, 4) + (result.reward_std ? ' +/- ' + metricVal(result.reward_std, 4) : '') + '</td>' +
-                '<td>' + metricVal(result.latency, 4) + '</td>' +
-                '<td>' + metricVal(result.energy, 4) + '</td>' +
-                '<td>' + metricVal(result.deadline_miss_rate, 4) + '</td>' +
-                '<td>' + metricVal(result.throughput, 4) + '</td>' +
-                '<td>' + metricVal(result.comm_score, 4) + '</td>' +
-                '<td>' + metricVal(result.train_time, 1) + '</td>' +
-                '<td>' + getStatusBadge(result.status || 'finished') + '</td>' +
-                '<td>' + escapeHtml(result.source || '-') + '</td>' +
-                '</tr>').join('');
+            body.innerHTML = results.map(result => {
+                const rawKeys = result.raw_metrics && Object.keys(result.raw_metrics).length;
+                const rawToggle = rawKeys ? '<button class="mini-btn" style="margin-top:4px;font-size:0.7em" onclick="toggleRawMetrics(this)">raw(' + rawKeys + ')</button><div class="raw-metrics" style="display:none;margin-top:4px;font-size:0.72em;color:var(--muted)">' + escapeHtml(Object.keys(result.raw_metrics || {}).slice(0, 20).join(', ')) + (rawKeys > 20 ? ' ...' : '') + '</div>' : '';
+                const cvrCell = metricVal(result.constraint_violation_rate, 4);
+                const cvrMark = (result.constraint_violation_rate > 0) ? cvrCell + '<span style="color:#e65100;font-size:0.8em;cursor:help" title="Constraint violations">!</span>' : cvrCell;
+                return '<tr>' +
+                    '<td>' + escapeHtml(result.algorithm || '-') + '</td>' +
+                    '<td>' + escapeHtml(result.environment || '-') + '</td>' +
+                    '<td>' + metricVal(result.reward, 4) + (result.reward_std ? ' +/- ' + metricVal(result.reward_std, 4) : '') + '</td>' +
+                    '<td>' + metricVal(result.latency, 4) + '</td>' +
+                    '<td>' + metricVal(result.energy, 4) + '</td>' +
+                    '<td>' + cvrMark + '</td>' +
+                    '<td>' + metricVal(result.throughput, 4) + '</td>' +
+                    '<td>' + metricVal(result.comm_score, 4) + '</td>' +
+                    '<td>' + metricVal(result.train_time, 1) + '</td>' +
+                    '<td>' + getStatusBadge(result.status || 'finished') + '</td>' +
+                    '<td>' + escapeHtml(result.source || '-') + '</td>' +
+                    '<td>' + (result.evidence_level ? renderEvidenceBadge(result.evidence_level) : '-') + '</td>' +
+                    '<td>' + escapeHtml(result.scenario || '-') + '</td>' +
+                    '<td>' + (result.constraint_violation_rate != null ? (result.constraint_violation_rate * 100).toFixed(1) + '%' : '-') + '</td>' +
+                    '<td>' + (result.oracle_gap != null ? result.oracle_gap.toFixed(3) : '-') + '</td>' +
+                    '</tr>' +
+                    (rawKeys ? '<tr class="raw-metrics-row"><td colspan="15" style="padding:4px 10px;background:rgba(20,29,43,0.6)">' + rawToggle + '</td></tr>' : '');
+            }).join('');
         }
+
+        function toggleRawMetrics(btn) {
+            const div = btn.nextElementSibling;
+            if (div) div.style.display = div.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function evidenceLevelClass(el){const l=(el||'').toLowerCase();if(l.includes('smoke'))return'evidence-smoke';if(l.includes('oracle')||l.includes('small-scale'))return'evidence-oracle';if(l.includes('probe')||l.includes('deterministic'))return'evidence-probe';if(l.includes('ood')||l.includes('formal'))return'evidence-ood';if(l.includes('pending'))return'evidence-pending';return'evidence-pending'}
+        function renderEvidenceBadge(el){if(!el)return'';return'<span class="evidence-badge '+evidenceLevelClass(el)+'">'+escapeHtml(el)+'</span>'}
+        function renderEvidenceBoundary(s){if(!s||!s.evidence_boundary)return'';let n=s.evidence_boundary;if(s.run_id==='benchmark_direct_all_17_vscode'&&(!s.evidence_level||s.evidence_level.includes('pending')))n='Direct Full17 benchmark export; review boundary required before interpreting as formal conclusion.';return'<div class="evidence-boundary-warning">Evidence boundary: '+escapeHtml(n)+'</div>'}
 
         function updateCharts(state) {
             const results = (state && state.results) || [];
@@ -1650,6 +1897,7 @@
             document.getElementById('delete-confirm-input').addEventListener('input', updateDeleteConfirmButton);
             await loadRuns();
             await fetchInitialRunState(dashboardState.currentSelectionValue);
+            await loadConvergence();
             initSSE();
         });
     </script>

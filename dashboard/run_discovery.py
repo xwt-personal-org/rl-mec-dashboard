@@ -7,7 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from dashboard.config import DashboardConfig
+from dashboard.benchmark_schema import BenchmarkSchemaAdapter
+from dashboard.config import DashboardConfig, benchmark_scan_roots
 from dashboard.experiment_reader import safe_read_json_file
 from dashboard.models import AlgorithmResult, BackupSnapshot, RunDescriptor
 from dashboard.protocol_reader import read_json_file
@@ -286,6 +287,117 @@ def discover_legacy_runs(logs_dir: Path) -> list[RunDescriptor]:
     return descriptors
 
 
+_SOURCE_TYPE_PRIORITY: dict[str, int] = {
+    "experiment_state": 100,
+    "mainline_a_benchmark": 90,
+    "benchmark_export": 80,
+    "legacy_structured": 70,
+    "legacy_log": 60,
+    "mixed": 50,
+    "placeholder": 0,
+    "backup": 0,
+    "archive": 0,
+}
+
+
+def _source_type_rank(source_type: str) -> int:
+    """Return priority rank for source_type dedup (higher wins)."""
+    return _SOURCE_TYPE_PRIORITY.get(source_type, 0)
+
+
+BENCHMARK_RUN_ID_PATTERN = re.compile(r"^benchmark_(?P<run_id>.+)\.json$")
+
+
+def _derive_benchmark_run_id(filename: str, resolved: set[str]) -> str:
+    """Derive run_id from benchmark filename.
+
+    Rules:
+    - benchmark_paper2_full_17_vscode.json → "paper2_full_17_vscode"
+    - benchmark_direct_all_17_vscode.json → "benchmark_direct_all_17_vscode"
+    - benchmark.json → "benchmark_json_latest" (only if no more specific match exists)
+    - Other benchmark_<name>.json → <name>
+    """
+    match = BENCHMARK_RUN_ID_PATTERN.match(filename)
+    if match is None:
+        return filename.rsplit(".", 1)[0]
+
+    run_id = match.group("run_id")
+    # benchmark_paper2_* → strip the benchmark_ prefix
+    if run_id.startswith("paper2_"):
+        return run_id
+    # benchmark_direct_* and other specific names keep full name
+    if run_id.startswith("direct_") or "_all_" in run_id or "_vscode" in run_id:
+        return filename.rsplit(".", 1)[0] if not filename.startswith("benchmark_direct_") else run_id if filename.startswith("benchmark_") else run_id
+
+    if run_id == "json":
+        return "benchmark_json_latest"
+    return run_id
+
+
+def discover_benchmark_exports(
+    config: DashboardConfig,
+) -> list[RunDescriptor]:
+    """Discover benchmark JSON exports across all configured scan directories."""
+    if not config.mainline_a_enabled:
+        return []
+
+    scan_dirs = benchmark_scan_roots(config)
+    globs = config.benchmark_file_globs
+    aliases = config.mainline_a_run_aliases
+
+    adapter = BenchmarkSchemaAdapter()
+    descriptors: list[RunDescriptor] = []
+    seen_paths: set[str] = set()
+    resolved_run_ids: set[str] = set()
+
+    for scan_dir in scan_dirs:
+        if not scan_dir.exists():
+            continue
+        for glob_pattern in globs:
+            for file_path in sorted(scan_dir.glob(glob_pattern)):
+                if not file_path.is_file():
+                    continue
+                name_lower = file_path.name.lower()
+                if name_lower.endswith(".tmp") or name_lower.endswith(".bak") or name_lower.endswith(".err"):
+                    continue
+                path_key = str(file_path.resolve(strict=False))
+                if path_key in seen_paths:
+                    continue
+                seen_paths.add(path_key)
+
+                run_id = _derive_benchmark_run_id(file_path.name, resolved_run_ids)
+                if run_id == "benchmark_json_latest" and resolved_run_ids:
+                    continue
+
+                try:
+                    payload = read_json_file(file_path)
+                except ValueError:
+                    continue
+
+                schema = adapter.detect_schema(payload)
+                source_type = "mainline_a_benchmark" if schema == "mainline_a" else "benchmark_export"
+
+                display_name = aliases.get(run_id, aliases.get(file_path.name, run_id))
+                if not display_name or display_name == run_id:
+                    display_name = file_path.name.rsplit(".", 1)[0].replace("benchmark_", "").replace("_", " ").title()
+
+                mtime = file_path.stat().st_mtime
+
+                descriptors.append(
+                    RunDescriptor(
+                        run_id=run_id,
+                        source_type=source_type,
+                        mtime=mtime,
+                        display_name=display_name,
+                        benchmark_export_file=file_path,
+                        benchmark_only=True,
+                    )
+                )
+                resolved_run_ids.add(run_id)
+
+    return descriptors
+
+
 def discover_runs(config: DashboardConfig) -> list[RunDescriptor]:
     merged: dict[str, RunDescriptor] = {}
     for descriptor in discover_experiment_runs(config.experiments_dir, config.results_dir):
@@ -307,6 +419,15 @@ def discover_runs(config: DashboardConfig) -> list[RunDescriptor]:
         existing.stdout_file = descriptor.stdout_file
         existing.stderr_file = descriptor.stderr_file
 
+    for descriptor in discover_benchmark_exports(config):
+        existing = merged.get(descriptor.run_id)
+        if existing is None:
+            merged[descriptor.run_id] = descriptor
+            continue
+        if _source_type_rank(descriptor.source_type) <= _source_type_rank(existing.source_type):
+            continue
+        merged[descriptor.run_id] = descriptor
+
     for descriptor in default_experiment_placeholders(config):
         if descriptor.run_id not in merged:
             merged[descriptor.run_id] = descriptor
@@ -325,6 +446,7 @@ def load_benchmark_results(json_path: Path) -> list[AlgorithmResult]:
     if not isinstance(payload, list):
         return []
 
+    adapter = BenchmarkSchemaAdapter()
     results: list[AlgorithmResult] = []
     for item in payload:
         if not isinstance(item, dict):
@@ -332,29 +454,15 @@ def load_benchmark_results(json_path: Path) -> list[AlgorithmResult]:
         algorithm = item.get("algorithm")
         if not algorithm:
             continue
-        results.append(
-            AlgorithmResult(
-                algorithm=str(algorithm),
-                reward=_optional_float(_first_value(item.get("final_reward_mean"), item.get("final_reward_mean_mean"))),
-                reward_std=_optional_float(_first_value(item.get("final_reward_std"), item.get("final_reward_mean_std"))),
-                train_time=_optional_float(item.get("train_time_seconds_mean")),
-                latency=_optional_float(_first_value(item.get("final_latency_mean"), item.get("final_latency_mean_mean"))),
-                energy=_optional_float(_first_value(item.get("final_energy_mean"), item.get("final_energy_mean_mean"))),
-                deadline_miss_rate=_optional_float(item.get("final_deadline_miss_rate_mean")),
-                throughput=_optional_float(item.get("final_throughput_tasks_per_step_mean")),
-                comm_score=_optional_float(_first_value(item.get("final_comm_score"), item.get("final_comm_score_mean"))),
-                update_count=_optional_int(item.get("total_updates_mean")),
-                environment=str(item.get("environment", "")),
-                seed=_optional_int(item.get("seed")),
-                device=str(item.get("device", "")),
-                train_timesteps=_optional_int(item.get("train_timesteps")),
-                checkpoint_dir=str(item.get("checkpoint_dir", "")),
-                result_path=str(item.get("result_path", "")),
-                source="benchmark_json",
-                status=str(item.get("status") or "historical"),
-            )
-        )
+        results.append(adapter.normalize_item(item, source_path=Path(json_path)))
     return results
+
+
+def load_benchmark_payload(json_path: Path) -> list[dict]:
+    payload = read_json_file(Path(json_path))
+    if not isinstance(payload, list):
+        return []
+    return [item for item in payload if isinstance(item, dict)]
 
 
 def _backup_snapshot_from_dir(

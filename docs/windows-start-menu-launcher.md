@@ -64,3 +64,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall_start_menu_short
 真正的一键启动需要 Native Messaging Host 和系统注册表配置，维护成本更高，也超出本轮只增加启动入口的范围。
 
 Start Menu 快捷方式已经能满足一键启动 dashboard server 的目标，复杂度更低。
+
+## 覆盖 PAPER2_ROOT
+
+启动脚本 `start_dashboard.bat` 默认使用硬编码路径 `C:\Users\22003\paper2\paper2`。
+若 paper2 位于其他路径，可在运行脚本前设置环境变量：
+
+```bat
+set PAPER2_ROOT=D:\my-projects\paper2
+start_dashboard.bat
+```
+
+或在 `.vbs` 启动器脚本中修改 `PAPER2_ROOT` 变量。
+
