@@ -5,182 +5,447 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RL-MEC Training Dashboard</title>
     <link rel="icon" href="data:,">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <link rel="stylesheet" href="static/fonts.css">
+    <script src="static/chart.umd.min.js"></script>
     <style>
         :root {
-            --bg: #0b0f16;
-            --bg-soft: #101724;
-            --panel: #141d2b;
-            --panel-strong: #172235;
-            --panel-muted: #101824;
-            --line: #2a3a52;
-            --line-soft: rgba(148, 163, 184, 0.18);
-            --text: #f5f8ff;
-            --muted: #9caac0;
-            --muted-strong: #c4d0e4;
-            --blue: #4d7dff;
-            --blue-soft: rgba(77, 125, 255, 0.18);
-            --green: #17a979;
-            --amber: #d99b2b;
-            --red: #d94f62;
-            --shadow: 0 18px 48px rgba(3, 8, 20, 0.28);
+            /* Colors — DESIGN.md */
+            --primary: #3B82F6;
+            --on-primary: #FFFFFF;
+            --primary-hover: #60A5FA;
+            --primary-pressed: #2563EB;
+            --primary-container: #1E3A5F;
+            --primary-container-muted: #172A46;
+            --background: #0A0E1A;
+            --background-mid: #0C1222;
+            --background-soft: #0F1420;
+            --surface: #111827;
+            --surface-muted: #0F172A;
+            --surface-elevated: #1A2332;
+            --surface-console: #060A12;
+            --surface-danger: #320A14;
+            --surface-danger-deep: #1E0A0F;
+            --on-surface: #F1F5F9;
+            --on-surface-strong: #FFFFFF;
+            --on-surface-muted: #94A3B8;
+            --on-surface-subtle: #CBD5E1;
+            --outline: #1E3A5F;
+            --outline-soft: #18243A;
+            --outline-strong: #2563EB;
+            --focus-ring: #3B82F6;
+            --selection: #162544;
+            --info: #06B6D4;
+            --info-container: #0B3442;
+            --on-info: #E0F2FE;
+            --success: #10B981;
+            --success-strong: #34D399;
+            --success-container: #0B3A30;
+            --on-success: #D1FAE5;
+            --warning: #F59E0B;
+            --warning-container: #332718;
+            --on-warning: #FEF3C7;
+            --danger: #EF4444;
+            --danger-strong: #DC2626;
+            --danger-deep: #B91C1C;
+            --danger-container: #3B0F16;
+            --on-danger: #FEE2E2;
+            --violet: #8B5CF6;
+            --violet-container: #2D1F4C;
+            --on-violet: #EDE9FE;
+            --rose: #F43F5E;
+            --chart-axis: #BFCAE1;
+            --chart-legend: #DBE6FF;
+            --chart-gridline: #202A3A;
+            /* Semantic aliases */
+            --bg: var(--background);
+            --bg-soft: var(--background-soft);
+            --panel: var(--surface);
+            --panel-strong: var(--surface-elevated);
+            --panel-muted: var(--surface-muted);
+            --line: var(--outline);
+            --line-soft: var(--outline-soft);
+            --text: var(--on-surface);
+            --muted: var(--on-surface-muted);
+            --muted-strong: var(--on-surface-subtle);
+            --text-tertiary: #64748B;
+            --blue: var(--primary);
+            --blue-soft: rgba(59, 130, 246, 0.15);
+            --green: var(--success);
+            --amber: var(--warning);
+            --red: var(--danger);
+            --cyan: var(--info);
+            /* Spacing */
+            --space-01: 2px;
+            --space-02: 4px;
+            --space-03: 6px;
+            --space-04: 8px;
+            --space-05: 10px;
+            --space-06: 12px;
+            --space-08: 16px;
+            --space-10: 20px;
+            --space-11: 24px;
+            --control-height: 38px;
+            --mini-control-height: 28px;
+            /* Radii */
+            --radius: 10px;
+            --radius-md: 8px;
+            --radius-sm: 6px;
+            --radius-xs: 4px;
+            --radius-full: 9999px;
+            /* Shadows */
+            --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.35);
+            --shadow-floating: 0 12px 40px rgba(0, 0, 0, 0.45);
+            --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.30);
+            --shadow-active-glow: 0 0 20px rgba(59, 130, 246, 0.10);
+            --shadow-danger-glow: 0 0 30px rgba(239, 68, 68, 0.05);
+            --shadow: var(--shadow-panel);
+            --shadow-lg: var(--shadow-floating);
+            /* Typography */
+            --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             min-height: 100vh;
-            background: linear-gradient(180deg, var(--bg) 0%, #0e1520 48%, #0b0f16 100%);
+            background: linear-gradient(180deg, var(--background) 0%, var(--background-mid) 50%, var(--background-soft) 100%);
             color: var(--text);
-            font-family: "Segoe UI", Arial, sans-serif;
-            padding: 22px;
+            font-family: var(--font-sans);
+            font-size: 14px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
-        .container { max-width: 1500px; margin: 0 auto; }
-        h1 { font-size: 1.9rem; line-height: 1.1; letter-spacing: 0; }
-        h2 { font-size: 0.95rem; line-height: 1.25; margin-bottom: 12px; color: var(--text); }
+        .container {
+            display: grid;
+            grid-template-columns: 232px minmax(0, 1fr);
+            min-height: 100vh;
+            width: 100%;
+            margin: 0;
+        }
+        .sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding: 22px 14px;
+            background: linear-gradient(180deg, #14243a 0%, #0c1728 100%);
+            border-right: 1px solid #233753;
+            box-shadow: inset -1px 0 0 rgba(255,255,255,0.03);
+            z-index: 5;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 34px;
+            padding: 0 4px;
+            color: var(--text);
+            font-weight: 800;
+            letter-spacing: 0;
+            white-space: nowrap;
+        }
+        .brand-mark {
+            position: relative;
+            width: 26px;
+            height: 26px;
+            border: 1px solid #2c9cff;
+            border-radius: 7px;
+            background: #102945;
+            box-shadow: 0 0 18px rgba(59, 140, 255, 0.22);
+        }
+        .brand-mark::before,
+        .brand-mark::after {
+            content: "";
+            position: absolute;
+            border-radius: 999px;
+        }
+        .brand-mark::before {
+            width: 5px;
+            height: 5px;
+            left: 7px;
+            top: 7px;
+            background: var(--green);
+            box-shadow: 8px 7px 0 var(--cyan);
+        }
+        .brand-mark::after {
+            left: 8px;
+            top: 10px;
+            width: 13px;
+            height: 8px;
+            border-left: 2px solid #6eb6ff;
+            border-bottom: 2px solid #6eb6ff;
+            transform: skewY(-22deg);
+            opacity: 0.9;
+        }
+        .side-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 42px;
+            padding: 0 12px;
+            color: var(--muted-strong);
+            text-decoration: none;
+            border-radius: 7px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            transition: background var(--transition), color var(--transition), transform var(--transition);
+        }
+        .nav-link svg {
+            width: 17px;
+            height: 17px;
+            flex: 0 0 auto;
+            stroke-width: 1.8;
+        }
+        .nav-link:hover {
+            color: #e8f1ff;
+            background: rgba(33, 59, 95, 0.58);
+            transform: translateX(1px);
+        }
+        .nav-link.active {
+            color: #75b2ff;
+            background: #213b5f;
+        }
+        .nav-link.danger {
+            color: #f05a63;
+        }
+        .workspace {
+            min-width: 0;
+            padding: var(--space-07, 14px) var(--space-11) 30px;
+            background: transparent;
+        }
+        h1 { font-family: var(--font-sans); font-size: 28px; font-weight: 800; line-height: 1.15; letter-spacing: 0; color: var(--on-surface-strong); }
+        h2 { font-family: var(--font-sans); font-size: 13px; line-height: 1.3; margin-bottom: var(--space-07, 14px); color: var(--on-surface-subtle); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
         button, select, input { font: inherit; }
         .app-header {
-            display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 18px;
-            padding: 18px 20px;
-            margin-bottom: 16px;
-            background: rgba(20, 29, 43, 0.88);
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            box-shadow: var(--shadow);
+            display: flex; align-items: center; justify-content: space-between; gap: var(--space-10);
+            padding: var(--space-07, 14px) var(--space-08); margin-bottom: var(--space-11);
+            background: var(--surface-elevated);
+            border: 1px solid var(--outline); border-top: 2px solid var(--primary);
+            border-radius: 0 0 var(--radius) var(--radius);
+            box-shadow: var(--shadow-panel);
+            position: relative;
         }
-        .title-block { min-width: 220px; }
-        .title-kicker { color: var(--muted); font-size: 0.78rem; margin-top: 6px; }
-        .dashboard-main { display: grid; gap: 16px; }
+        .app-header::after { display: none; }
+        .title-block { min-width: 260px; }
+        .title-kicker { color: var(--muted); font-size: 0.78rem; margin-top: 8px; }
+        .dashboard-main { min-width: 0; }
         .topbar, .filters, .charts-grid { margin-bottom: 0; }
-        .panel, .status-bar { margin-bottom: 0; }
+        .panel, .status-bar { margin-bottom: 0; min-width: 0; }
         .topbar { display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; flex: 1; }
         .topbar select, .filters select, .filters input, .compare-controls select, .convergence-controls select, .log-controls select, .log-controls input {
-            min-height: 36px;
-            background: var(--panel-muted);
-            color: var(--text);
-            border: 1px solid var(--line);
-            border-radius: 6px;
-            padding: 6px 10px;
+            min-height: 38px; background: var(--panel-muted); color: var(--text);
+            border: 1px solid var(--line); border-radius: var(--radius-sm);
+            padding: 7px 12px; font-size: 0.85rem;
+            transition: border-color var(--transition), box-shadow var(--transition);
         }
+        .topbar select:focus, .filters select:focus, .filters input:focus, .compare-controls select:focus, .convergence-controls select:focus, .log-controls select:focus, .log-controls input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); outline: none; }
         .topbar select { width: clamp(300px, 34vw, 540px); }
-        .btn { min-height: 36px; border: 0; border-radius: 6px; color: #fff; background: var(--blue); padding: 7px 12px; cursor: pointer; }
-        .btn.secondary { background: #26364f; }
-        .btn.danger { background: #b93d4d; }
-        .btn:hover:not(:disabled), .mini-btn:hover { filter: brightness(1.08); }
-        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-        .language-toggle { display: inline-flex; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; }
-        .language-toggle button { min-height: 34px; border: 0; border-right: 1px solid var(--line); color: var(--muted-strong); background: var(--panel-muted); padding: 6px 10px; cursor: pointer; }
+        .btn { min-height: var(--control-height); border: 0; border-radius: var(--radius-sm); color: var(--on-primary); background: var(--primary); padding: var(--space-04) var(--space-08); cursor: pointer; font-weight: 600; font-size: 13px; transition: all var(--transition); letter-spacing: 0.01em; }
+        .btn.secondary { background: var(--primary-container); color: var(--on-surface); border: 1px solid var(--outline); }
+        .btn.danger { background: var(--danger-strong); color: var(--on-primary); }
+        .btn:hover:not(:disabled) { transform: translateY(-1px); background: var(--primary-hover); box-shadow: var(--shadow-hover); }
+        .btn.secondary:hover:not(:disabled) { background: var(--primary-container); filter: brightness(1.15); }
+        .btn.danger:hover:not(:disabled) { background: var(--danger-deep); }
+        .btn:active:not(:disabled) { transform: translateY(0); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn:focus-visible, .mini-btn:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+        .language-toggle { display: inline-flex; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+        .language-toggle button { min-height: 36px; border: 0; border-right: 1px solid var(--line); color: var(--muted-strong); background: var(--panel-muted); padding: 6px 12px; cursor: pointer; font-weight: 500; transition: all var(--transition); }
         .language-toggle button:last-child { border-right: 0; }
         .language-toggle button.active { color: #fff; background: var(--blue); }
-        .muted { color: var(--muted); font-size: 0.85rem; }
-        .connection-status { display: none; padding: 8px 12px; color: #ffd1d8; background: rgba(104, 34, 48, 0.45); border: 1px solid #94404a; border-radius: 6px; margin-bottom: 14px; }
-        .panel { background: rgba(20, 29, 43, 0.92); border: 1px solid var(--line); border-radius: 8px; padding: 16px; box-shadow: 0 12px 36px rgba(3, 8, 20, 0.18); }
-        .panel h2 { display: flex; align-items: center; gap: 8px; }
-        .panel h2::before { content: ""; width: 3px; height: 16px; border-radius: 999px; background: var(--blue); }
+        .muted { color: var(--muted); font-size: 0.84rem; }
+        .connection-status { display: none; padding: 10px 16px; color: #fecaca; background: rgba(127,29,29,0.5); border: 1px solid rgba(239,68,68,0.4); border-radius: var(--radius-sm); margin-bottom: 16px; font-weight: 500; animation: pulse-border 2s ease-in-out infinite; }
+        @keyframes pulse-border { 0%,100%{ border-color: rgba(239,68,68,0.4); } 50%{ border-color: rgba(239,68,68,0.7); } }
+        .panel { background: var(--surface); border: 1px solid var(--outline); border-radius: var(--radius); padding: var(--space-10); box-shadow: var(--shadow-panel); transition: box-shadow var(--transition); position: relative; }
+        .panel-monitoring { border-top: 2px solid var(--primary); }
+        .panel-alerts { border-top: 2px solid var(--warning); }
+        .panel-danger { border-top: 2px solid var(--danger); }
+        .panel h2 { display: flex; align-items: center; gap: var(--space-04); }
+        .panel h2::before { content: ""; width: 3px; height: 16px; border-radius: var(--radius-full); background: var(--primary); flex-shrink: 0; }
         .panel h2 .mini-btn { margin-left: auto; }
         .filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .run-overview-panel { min-height: 220px; }
-        .run-overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; max-height: 344px; overflow: auto; padding-right: 4px; }
+        .run-overview { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; max-height: 380px; overflow: auto; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
         .run-overview > .empty { grid-column: 1 / -1; }
-        .run-tile { background: var(--panel-muted); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px; cursor: pointer; overflow: hidden; transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease; }
-        .run-tile:hover { transform: translateY(-1px); border-color: #48668f; background: #121d2c; }
-        .run-tile.fixed { border-color: #3d5a83; }
-        .run-tile.active { border-color: var(--blue); box-shadow: inset 3px 0 0 var(--blue); }
+        .run-tile { background: var(--surface-muted); border: 1px solid var(--outline-soft); border-radius: var(--radius); padding: var(--space-07, 14px); cursor: pointer; overflow: hidden; transition: all var(--transition); position: relative; font-size: 13px; }
+        .run-tile:hover { transform: translateY(-2px); border-color: var(--outline); background: var(--surface-elevated); box-shadow: var(--shadow-hover); }
+        .run-tile.fixed { border-left: 3px solid var(--info); }
+        .run-tile.active { border-color: var(--primary); box-shadow: inset 3px 0 0 var(--primary), var(--shadow-active-glow); background: var(--selection); }
         .run-tile-header { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
-        .run-id { font-weight: 700; word-break: break-word; }
-        .run-note { color: var(--muted-strong); font-size: 0.78rem; line-height: 1.4; margin: 6px 0 8px; }
-        .run-grid { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 6px 10px; font-size: 0.82rem; color: var(--muted-strong); }
+        .run-id { font-weight: 700; word-break: break-word; font-size: 0.92rem; }
+        .run-note { color: var(--amber); font-size: 0.76rem; line-height: 1.4; margin: 6px 0 8px; padding: 4px 8px; background: rgba(245,158,11,0.08); border-radius: var(--radius-xs); border-left: 2px solid var(--amber); }
+        .run-grid { display: grid; grid-template-columns: 0.85fr 1.15fr; gap: 5px 10px; font-size: 0.8rem; color: var(--muted); }
         .run-grid span { min-width: 0; overflow-wrap: anywhere; }
+        .run-grid span:nth-child(even) { color: var(--muted-strong); font-family: var(--font-mono); font-size: 0.78rem; }
         .backup-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
-        #backup-content.empty, #global-backups .empty { background: var(--panel-muted); border: 1px solid var(--line-soft); border-radius: 8px; }
-        .backup-item { background: var(--panel-muted); border: 1px solid var(--line-soft); border-radius: 8px; padding: 10px; min-width: 0; }
-        .backup-item .label { color: var(--muted); font-size: 0.74rem; margin-bottom: 5px; }
-        .backup-item .value { color: var(--text); font-size: 0.9rem; font-weight: 700; overflow-wrap: anywhere; }
-        .panel-subtitle { color: var(--muted-strong); font-size: 0.84rem; margin: 16px 0 8px; }
+        #backup-content.empty, #global-backups .empty { background: var(--panel-muted); border: 1px solid var(--line-soft); border-radius: var(--radius); }
+        .backup-item { background: var(--panel-muted); border: 1px solid var(--line-soft); border-radius: var(--radius); padding: 12px; min-width: 0; transition: border-color var(--transition); }
+        .backup-item:hover { border-color: var(--line); }
+        .backup-item .label { color: var(--muted); font-size: 0.72rem; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .backup-item .value { color: var(--text); font-size: 0.88rem; font-weight: 700; overflow-wrap: anywhere; font-family: var(--font-mono); }
+        .panel-subtitle { color: var(--muted-strong); font-size: 0.82rem; margin: 18px 0 10px; font-weight: 600; }
         .diagnostics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
-        .diagnostics-note { color: #ffd17a; margin-top: 8px; font-size: 0.84rem; }
-        .danger-zone { border-color: rgba(217, 79, 98, 0.72); background: rgba(42, 18, 27, 0.72); }
-        .danger-zone h2 { color: #ffc6ce; }
-        .danger-zone h2::before { background: var(--red); }
-        .delete-preview { margin-top: 12px; background: rgba(11, 15, 22, 0.82); border: 1px solid rgba(217, 79, 98, 0.35); border-radius: 8px; padding: 12px; }
-        .delete-path-list { max-height: 160px; overflow: auto; margin-top: 8px; padding-left: 18px; color: var(--muted-strong); font-size: 0.78rem; }
-        .delete-confirm-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
-        .delete-confirm-row input { min-height: 36px; min-width: min(100%, 420px); background: var(--panel-muted); color: var(--text); border: 1px solid rgba(217, 79, 98, 0.62); border-radius: 6px; padding: 6px 10px; }
+        .diagnostics-note { color: var(--amber); margin-top: 10px; font-size: 0.82rem; padding: 8px 12px; background: rgba(245,158,11,0.06); border-radius: var(--radius-xs); border-left: 2px solid var(--amber); }
+        .danger-zone { border-color: var(--danger); background: var(--surface-danger); border-top: 2px solid var(--danger); box-shadow: var(--shadow-danger-glow); }
+        .danger-zone h2 { color: var(--on-danger); }
+        .danger-zone h2::before { background: var(--danger); }
+        .delete-preview { margin-top: 14px; background: rgba(10, 14, 26, 0.85); border: 1px solid rgba(239,68,68,0.25); border-radius: var(--radius); padding: 14px; }
+        .delete-path-list { max-height: 160px; overflow: auto; margin-top: 8px; padding-left: 18px; color: var(--muted-strong); font-size: 0.76rem; font-family: var(--font-mono); scrollbar-width: thin; }
+        .delete-confirm-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+        .delete-confirm-row input { min-height: 38px; min-width: min(100%, 420px); background: var(--panel-muted); color: var(--text); border: 1px solid rgba(239,68,68,0.5); border-radius: var(--radius-sm); padding: 7px 12px; font-family: var(--font-mono); }
         .run-error { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-        .status-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-        .metric { background: rgba(20, 29, 43, 0.92); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-height: 86px; box-shadow: 0 10px 28px rgba(3, 8, 20, 0.14); }
-        .metric h3 { font-size: 0.76rem; color: var(--muted); margin-bottom: 8px; }
-        .metric .value { font-size: 1.35rem; font-weight: 700; }
-        .metric .sub { color: var(--muted); font-size: 0.76rem; margin-top: 4px; }
-        .progress-panel { background: linear-gradient(180deg, rgba(20, 29, 43, 0.96), rgba(16, 24, 36, 0.96)); }
-        .progress-bar-wrap { background: #263247; border-radius: 6px; overflow: hidden; height: 24px; }
-        .progress-bar-fill { height: 100%; min-width: 34px; background: var(--blue); text-align: right; padding-right: 8px; line-height: 24px; font-size: 0.78rem; transition: width 0.2s ease; }
-        .progress-bar-fill.overall { background: var(--green); }
-        .charts-grid, .logs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+        .status-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-06); }
+        .metric-card { background: var(--surface); border: 1px solid var(--outline); border-top: 3px solid var(--primary); border-radius: var(--radius); padding: var(--space-08); display: flex; flex-direction: column; gap: var(--space-04); transition: transform var(--transition), box-shadow var(--transition); }
+        .metric-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-hover); }
+        .metric-card.accent-status { border-top-color: var(--info); }
+        .metric-card.accent-algo { border-top-color: var(--violet); }
+        .metric-card.accent-progress { border-top-color: var(--primary); }
+        .metric-card.accent-overall { border-top-color: var(--success); }
+        .metric-card.accent-eta { border-top-color: var(--warning); }
+        .metric-card h3 { font-family: var(--font-sans); font-size: 12px; color: var(--on-surface-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+        .metric-card .value { font-family: var(--font-mono); font-size: 24px; font-weight: 800; color: var(--on-surface-strong); line-height: 1.2; }
+        .metric-card .sub { font-family: var(--font-sans); font-size: 13px; color: var(--text-tertiary); margin-top: auto; }
+        .progress-panel { border-top: 2px solid var(--primary); }
+        .progress-bar-wrap { background: var(--primary-container-muted); border-radius: var(--radius-md); overflow: hidden; height: 26px; border: 1px solid var(--outline-soft); }
+        .progress-bar-fill { height: 100%; min-width: 36px; background: var(--primary); color: var(--on-primary); text-align: right; padding-right: var(--space-05); line-height: 26px; font-size: 12px; font-weight: 500; font-family: var(--font-mono); transition: width 0.4s cubic-bezier(0.4,0,0.2,1); border-radius: var(--radius-sm); }
+        .progress-bar-fill.overall { background: var(--success); }
+        .charts-grid, .logs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
         .chart-container { height: 260px; position: relative; }
         .convergence-panel h2 { align-items: center; }
-        .convergence-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+        .convergence-panel { border-top: 2px solid var(--violet); }
+        .convergence-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
         .convergence-controls select { min-width: 150px; }
-        .algorithm-tabs { display: flex; gap: 8px; flex-wrap: wrap; min-width: 0; }
-        .algorithm-tab { border: 1px solid var(--line); background: var(--panel-muted); color: var(--text); border-radius: 6px; padding: 7px 10px; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
-        .algorithm-tab.active { border-color: var(--blue); background: rgba(77, 125, 255, 0.2); color: #eef3ff; }
-        .algorithm-tab:disabled { opacity: 0.44; cursor: not-allowed; }
+        .algorithm-tabs { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+        .algorithm-tab { border: 1px solid var(--line); background: var(--panel-muted); color: var(--muted-strong); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 0.76rem; font-weight: 600; cursor: pointer; transition: all var(--transition); }
+        .algorithm-tab.active { border-color: var(--blue); background: rgba(59,130,246,0.15); color: #e0ecff; box-shadow: 0 0 8px rgba(59,130,246,0.15); }
+        .algorithm-tab:hover:not(:disabled) { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.08); }
+        .algorithm-tab:disabled { opacity: 0.35; cursor: not-allowed; }
         .convergence-chart-container { height: 320px; }
-        .table-wrap { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border-bottom: 1px solid var(--line-soft); padding: 8px 10px; text-align: left; font-size: 0.82rem; white-space: nowrap; }
-        th { color: var(--muted); background: rgba(23, 34, 53, 0.82); font-weight: 700; }
-        tbody tr:hover { background: rgba(77, 125, 255, 0.06); }
-        .badge { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
-        .badge-running { background: #214d8c; }
-        .badge-finished, .badge-completed { background: #1d6f50; }
-        .badge-stalled, .badge-failed, .badge-interrupted { background: #8c2d2d; }
-        .badge-degraded, .badge-warn { background: #8a5a10; }
-        .badge-idle, .badge-historical, .badge-initialized, .badge-pending, .badge-placeholder, .badge-skipped, .badge-stopped { background: #4d5a70; }
-        .evidence-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:0.7em;font-weight:600;margin-left:6px;vertical-align:middle}
-        .evidence-smoke{background:#e3f2fd;color:#1565c0}
-        .evidence-oracle{background:#e8f5e9;color:#2e7d32}
-        .evidence-probe{background:#fff3e0;color:#e65100}
-        .evidence-ood{background:#fce4ec;color:#c62828}
-        .evidence-pending{background:#f3e5f5;color:#6a1b9a}
-        .evidence-boundary-warning{background:#fff8e1;border:1px solid #ffc107;border-radius:4px;padding:8px 12px;margin:8px 0;font-size:0.85em;color:#5d4037}
+        .table-wrap { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--outline) transparent; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { border-bottom: 1px solid var(--outline-soft); padding: var(--space-06) var(--space-08); text-align: left; white-space: nowrap; }
+        th { font-family: var(--font-sans); color: var(--on-surface-muted); background: var(--surface-muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--outline); }
+        tbody tr { transition: background var(--transition); }
+        tbody tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+        tbody tr:hover { background: rgba(59, 130, 246, 0.06); }
+        td { font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--on-surface); }
+        .badge { display: inline-flex; align-items: center; border-radius: var(--radius-full); padding: var(--space-02) var(--space-04); font-size: 11px; font-weight: 700; font-family: var(--font-sans); text-transform: uppercase; letter-spacing: 0.03em; gap: var(--space-02); border: 0; }
+        .badge-running { background: var(--selection); color: var(--primary-hover); }
+        .badge-finished, .badge-completed { background: var(--success-container); color: var(--on-success); }
+        .badge-stalled, .badge-failed, .badge-interrupted { background: var(--danger-container); color: var(--on-danger); }
+        .badge-degraded, .badge-warn { background: var(--warning-container); color: var(--on-warning); }
+        .badge-idle, .badge-historical, .badge-initialized, .badge-pending, .badge-placeholder, .badge-skipped, .badge-stopped { background: var(--primary-container-muted); color: var(--on-surface-muted); }
+        .evidence-badge { display: inline-flex; align-items: center; padding: var(--space-02) var(--space-04); border-radius: var(--radius-full); font-size: 11px; font-weight: 700; font-family: var(--font-sans); margin-left: var(--space-03); vertical-align: middle; letter-spacing: 0.03em; text-transform: uppercase; border: 0; }
+        .evidence-smoke { background: var(--selection); color: var(--primary-hover); }
+        .evidence-oracle { background: var(--violet-container); color: var(--on-violet); }
+        .evidence-probe { background: var(--warning-container); color: var(--on-warning); }
+        .evidence-ood { background: var(--danger-container); color: var(--on-danger); }
+        .evidence-pending { background: var(--primary-container-muted); color: var(--on-surface-muted); }
+        .evidence-boundary-warning { background: var(--warning-container); border: 1px solid var(--warning); border-left: 3px solid var(--warning); border-radius: var(--radius-sm); padding: var(--space-06) var(--space-08); margin: var(--space-06) 0; font-size: 13px; color: var(--on-warning); }
         .current-row { outline: 1px solid var(--blue); background: var(--blue-soft); }
-        .mini-btn { min-height: 28px; border: 1px solid var(--line); border-radius: 5px; color: var(--text); background: #20304b; padding: 4px 8px; cursor: pointer; margin-right: 4px; }
-        .mini-btn.active { background: var(--blue); border-color: #82a0ff; }
-        .status-marker { color: #ffd17a; font-size: 0.78rem; margin-left: 6px; }
-        .compare-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+        .mini-btn { min-height: var(--mini-control-height); border: 1px solid var(--outline); border-radius: var(--radius-xs); color: var(--on-surface-subtle); background: var(--primary-container-muted); padding: var(--space-02) var(--space-05); cursor: pointer; margin-right: var(--space-02); font-size: 12px; font-weight: 500; letter-spacing: 0.04em; transition: all var(--transition); }
+        .mini-btn:hover { background: var(--selection); border-color: var(--outline-strong); color: var(--on-surface); }
+        .mini-btn.active { background: var(--primary); border-color: var(--primary-hover); color: var(--on-primary); }
+        .status-marker { color: var(--amber); font-size: 0.76rem; margin-left: 6px; font-weight: 600; }
+        .compare-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
         .compare-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr); gap: 18px; }
-        .log-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-        .log-window { height: 280px; overflow-y: auto; background: #080d14; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: 0.78rem/1.5 Consolas, "Courier New", monospace; }
+        .log-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+        .log-window { height: 280px; overflow-y: auto; background: var(--surface-console); border: 1px solid var(--outline); border-radius: var(--radius); padding: var(--space-06); font: 12px/1.6 var(--font-mono); scrollbar-width: thin; scrollbar-color: var(--outline) transparent; }
         .artifact-log-window { min-height: 320px; white-space: pre-wrap; word-break: break-word; }
-        .log-tabs { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-        .log-line { padding: 2px 0; word-break: break-word; cursor: pointer; }
-        .log-error { color: #ff8787; }
-        .log-warn { color: #ffd166; }
-        .log-info { color: #7fb2ff; }
-        .error-summary { border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem; }
-        .error-summary.has-error { color: #ffd1d8; background: rgba(42, 18, 27, 0.7); border: 1px solid rgba(217, 79, 98, 0.4); }
+        .log-tabs { display: flex; gap: var(--space-04); align-items: center; flex-wrap: wrap; margin-bottom: var(--space-05); }
+        .log-line { display: grid; grid-template-columns: 180px auto; gap: var(--space-08); padding: var(--space-01) 0; word-break: break-word; cursor: pointer; transition: background var(--transition); border-radius: var(--radius-xs); padding-left: var(--space-02); margin-left: calc(-1 * var(--space-02)); font-size: 12px; font-weight: 400; }
+        .log-line:hover { background: rgba(59, 130, 246, 0.06); }
+        .log-timestamp { color: var(--text-tertiary); }
+        .log-error { color: var(--danger); }
+        .log-warn { color: var(--warning); }
+        .log-info { color: var(--primary-hover); }
+        .error-summary { border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 12px; font-size: 0.82rem; }
+        .error-summary.has-error { color: #fecaca; background: rgba(127,29,29,0.4); border: 1px solid rgba(239,68,68,0.3); }
         .error-summary.empty-summary { color: var(--muted); background: var(--panel-muted); border: 1px solid var(--line-soft); }
-        .empty { color: var(--muted); text-align: center; padding: 24px; }
+        .empty { color: var(--muted); text-align: center; padding: 28px; font-size: 0.85rem; }
         @media (max-width: 1100px) {
+            .container { grid-template-columns: 1fr; }
+            .sidebar {
+                position: relative;
+                height: auto;
+                flex-direction: row;
+                align-items: center;
+                gap: 14px;
+                padding: 12px 16px;
+                overflow-x: auto;
+            }
+            .side-nav { flex-direction: row; min-width: max-content; }
+            .nav-link { min-height: 36px; }
+            .workspace { padding: 0 16px 24px; }
             .app-header { align-items: stretch; flex-direction: column; }
             .topbar { justify-content: flex-start; }
             .charts-grid, .compare-grid, .backup-grid, .logs-grid { grid-template-columns: 1fr; }
         }
-        @media (max-width: 700px) {
-            body { padding: 12px; }
-            .app-header { padding: 14px; }
+        @media (max-width: 768px) {
+            .brand span { display: none; }
+            .workspace { padding: 0 12px 18px; }
+            .app-header { padding: 16px; }
+            .status-bar { grid-template-columns: repeat(2, 1fr); }
+            .run-overview { grid-template-columns: 1fr; max-height: none; overflow: visible; padding-right: 0; }
+            .compare-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 480px) {
+            .sidebar { padding: 10px; }
+            .workspace { padding: 0 10px 16px; }
+            .app-header { padding: 12px; }
             .status-bar { grid-template-columns: 1fr; }
             .topbar select { width: 100%; }
             .filters select, .filters input, .filters .btn, .convergence-controls select, .log-controls select, .log-controls input { width: 100%; }
             .convergence-controls { align-items: stretch; }
-            th, td { padding: 8px; }
+            th, td { padding: 7px 8px; font-size: 0.72rem; }
+            .metric-card .value { font-size: 1.2rem; }
+            h1 { font-size: 1.35rem; }
         }
+    
+        .dashboard-main { display: block; }
+        .page-view { display: none; animation: fadeIn var(--transition); min-width: 0; flex-direction: column; }
+        .page-view.active { display: flex; gap: 18px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
     <div class="container">
+        <aside class="sidebar" aria-label="Primary navigation">
+            <div class="brand">
+                <span class="brand-mark" aria-hidden="true"></span>
+                <span>RL-MEC Training</span>
+            </div>
+            <nav class="side-nav">
+                <a class="nav-link active" href="#" data-page="page-overview" onclick="switchPage('page-overview', this); return false;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9 20v-6h6v6"/></svg>
+                    <span data-i18n="nav.overview">Overview</span>
+                </a>
+                <a class="nav-link" href="#" data-page="page-metrics" onclick="switchPage('page-metrics', this); return false;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m4 16 5-5 4 4 7-8"/><path d="M4 20h16"/></svg>
+                    <span data-i18n="nav.metrics">Metrics & Charts</span>
+                </a>
+                <a class="nav-link" href="#" data-page="page-results" onclick="switchPage('page-results', this); return false;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 3 4 7v10l8 4 8-4V7z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/></svg>
+                    <span data-i18n="nav.results">Results & Artifacts</span>
+                </a>
+                <a class="nav-link" href="#" data-page="page-logs" onclick="switchPage('page-logs', this); return false;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5"/><path d="M9.5 12h6"/><path d="M9.5 16h6"/></svg>
+                    <span data-i18n="nav.logs">System Logs</span>
+                </a>
+                <a class="nav-link danger" href="#" data-page="page-danger" onclick="switchPage('page-danger', this); return false;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 3 2.5 20h19z"/><path d="M12 9v5"/><path d="M12 17.5h.01"/></svg>
+                    <span data-i18n="nav.danger">Danger Zone</span>
+                </a>
+            </nav>
+        </aside>
+        <div class="workspace">
         <header class="app-header">
             <div class="title-block">
                 <h1 data-i18n="app.title">RL-MEC Training Dashboard</h1>
@@ -201,7 +466,9 @@
         <div id="connection-status" class="connection-status" data-i18n="connection.disconnected">Disconnected. Reconnecting...</div>
 
         <main class="dashboard-main">
-        <section class="panel run-overview-panel">
+
+        <div id="page-overview" class="page-view active">
+            <section class="panel panel-monitoring run-overview-panel" id="overview">
             <h2 data-i18n="panel.runOverview">Run Overview</h2>
             <div class="filters">
                 <select id="status-filter">
@@ -223,16 +490,14 @@
             </div>
             <div id="run-overview" class="run-overview"></div>
         </section>
-
-        <section class="status-bar" id="metric-cards">
-            <div class="metric"><h3 data-i18n="metric.status">Status</h3><div class="value" id="status">-</div><div class="sub" id="status-sub" data-i18n="state.waitingForData">Waiting for data</div></div>
-            <div class="metric"><h3 data-i18n="metric.currentAlgorithm">Current Algorithm</h3><div class="value" id="current-algo">-</div><div class="sub" id="algo-sub">-</div></div>
-            <div class="metric"><h3 data-i18n="metric.algorithmProgress">Algorithm Progress</h3><div class="value" id="progress-pct">0%</div><div class="sub" id="progress-sub" data-i18n="progress.noSteps">- / - steps</div></div>
-            <div class="metric"><h3 data-i18n="metric.overallProgress">Overall Progress</h3><div class="value" id="overall-progress">0/17</div><div class="sub" id="overall-pct">0% complete</div></div>
-            <div class="metric"><h3 data-i18n="metric.eta">ETA</h3><div class="value" id="eta">-</div><div class="sub" id="elapsed">Elapsed: -</div></div>
+            <section class="status-bar" id="metric-cards">
+            <div class="metric-card accent-status"><h3 data-i18n="metric.status">Status</h3><div class="value" id="status">-</div><div class="sub" id="status-sub" data-i18n="state.waitingForData">Waiting for data</div></div>
+            <div class="metric-card accent-algo"><h3 data-i18n="metric.currentAlgorithm">Current Algorithm</h3><div class="value" id="current-algo">-</div><div class="sub" id="algo-sub">-</div></div>
+            <div class="metric-card accent-progress"><h3 data-i18n="metric.algorithmProgress">Algorithm Progress</h3><div class="value" id="progress-pct">0%</div><div class="sub" id="progress-sub" data-i18n="progress.noSteps">- / - steps</div></div>
+            <div class="metric-card accent-overall"><h3 data-i18n="metric.overallProgress">Overall Progress</h3><div class="value" id="overall-progress">0/17</div><div class="sub" id="overall-pct">0% complete</div></div>
+            <div class="metric-card accent-eta"><h3 data-i18n="metric.eta">ETA</h3><div class="value" id="eta">-</div><div class="sub" id="elapsed">Elapsed: -</div></div>
         </section>
-
-        <section class="panel progress-panel">
+            <section class="panel panel-monitoring progress-panel" id="progress-section">
             <h2 data-i18n="progress.title">Progress</h2>
             <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar" style="width:0%">0%</div></div>
             <div class="muted" style="display:flex;justify-content:space-between;margin:8px 0 12px;">
@@ -242,49 +507,7 @@
             </div>
             <div class="progress-bar-wrap"><div class="progress-bar-fill overall" id="overall-bar" style="width:0%">0%</div></div>
         </section>
-
-        <section class="charts-grid">
-            <div class="panel">
-                <h2><span data-i18n="chart.rewardComparison">Reward Comparison</span> <button class="mini-btn" onclick="refreshBenchmarkCharts()" data-i18n="action.refreshBenchmark">Refresh Benchmark</button></h2>
-                <div id="benchmark-empty" class="muted" style="margin-bottom:8px;"></div>
-                <div class="chart-container"><canvas id="rewardChart"></canvas></div>
-            </div>
-            <div class="panel">
-                <h2 data-i18n="chart.trainingTime">Training Time</h2>
-                <div class="chart-container"><canvas id="timeChart"></canvas></div>
-            </div>
-        </section>
-
-        <section class="panel convergence-panel">
-            <h2>
-                <span data-i18n="convergence.title">Convergence</span>
-                <button class="mini-btn" onclick="loadConvergence()" data-i18n="action.refreshConvergence">Refresh Convergence</button>
-            </h2>
-            <div class="convergence-controls">
-                <select id="convergence-metric" onchange="loadConvergence()">
-                    <option value="reward" data-i18n="results.reward">Reward</option>
-                    <option value="latency" data-i18n="results.latency">Latency</option>
-                    <option value="energy" data-i18n="results.energy">Energy</option>
-                    <option value="comm_score">Comm Score</option>
-                </select>
-                <div id="convergence-algorithm-tabs" class="algorithm-tabs"></div>
-            </div>
-            <div id="convergence-empty" class="muted" style="margin-bottom:8px;"></div>
-            <div class="chart-container convergence-chart-container">
-                <canvas id="convergenceChart"></canvas>
-            </div>
-        </section>
-
-        <section class="panel">
-            <h2 data-i18n="backup.title">Backups</h2>
-            <div id="backup-content" class="empty" data-i18n="backup.none">No backups found for this run.</div>
-            <h3 class="panel-subtitle" data-i18n="backup.recent">Recent Backups</h3>
-            <div id="global-backups" class="table-wrap"></div>
-            <h3 class="panel-subtitle" data-i18n="backup.diagnostics">Backup Diagnostics</h3>
-            <div id="backup-diagnostics" class="diagnostics-grid"></div>
-        </section>
-
-        <section class="panel">
+            <section class="panel panel-monitoring" id="algorithm-section">
             <h2 data-i18n="table.algorithmStatus">Algorithm Status</h2>
             <div class="table-wrap">
                 <table id="algorithm-table">
@@ -306,8 +529,63 @@
                 </table>
             </div>
         </section>
+        </div>
 
-        <section class="panel">
+        <div id="page-metrics" class="page-view">
+            <section class="charts-grid" id="charts-section">
+            <div class="panel panel-monitoring">
+                <h2><span data-i18n="chart.rewardComparison">Reward Comparison</span> <button class="mini-btn" onclick="refreshBenchmarkCharts()" data-i18n="action.refreshBenchmark">Refresh Benchmark</button></h2>
+                <div id="benchmark-empty" class="muted" style="margin-bottom:8px;"></div>
+                <div class="chart-container"><canvas id="rewardChart"></canvas></div>
+            </div>
+            <div class="panel panel-monitoring">
+                <h2 data-i18n="chart.trainingTime">Training Time</h2>
+                <div class="chart-container"><canvas id="timeChart"></canvas></div>
+            </div>
+        </section>
+            <section class="panel panel-monitoring convergence-panel">
+            <h2>
+                <span data-i18n="convergence.title">Convergence</span>
+                <button class="mini-btn" onclick="loadConvergence()" data-i18n="action.refreshConvergence">Refresh Convergence</button>
+            </h2>
+            <div class="convergence-controls">
+                <select id="convergence-metric" onchange="loadConvergence()">
+                    <option value="reward" data-i18n="results.reward">Reward</option>
+                    <option value="latency" data-i18n="results.latency">Latency</option>
+                    <option value="energy" data-i18n="results.energy">Energy</option>
+                    <option value="comm_score">Comm Score</option>
+                </select>
+                <div id="convergence-algorithm-tabs" class="algorithm-tabs"></div>
+            </div>
+            <div id="convergence-empty" class="muted" style="margin-bottom:8px;"></div>
+            <div class="chart-container convergence-chart-container">
+                <canvas id="convergenceChart"></canvas>
+            </div>
+        </section>
+            <section id="compare-panel" class="panel panel-monitoring">
+            <h2 data-i18n="compare.title">Compare Runs</h2>
+            <div class="compare-controls">
+                <select id="compare-metric">
+                    <option value="reward" data-i18n="results.reward">Reward</option>
+                    <option value="latency" data-i18n="results.latency">Latency</option>
+                    <option value="energy" data-i18n="results.energy">Energy</option>
+                    <option value="deadline_miss_rate" data-i18n="compare.deadlineMissRate">Deadline Miss Rate</option>
+                    <option value="throughput">Throughput</option>
+                    <option value="comm_score">Comm Score</option>
+                    <option value="train_time" data-i18n="chart.trainTime">Train Time</option>
+                    <option value="update_count" data-i18n="compare.updateCount">Update Count</option>
+                </select>
+                <span class="muted" id="compare-hint" data-i18n="compare.selectAtLeastTwo">Select at least two runs to compare.</span>
+            </div>
+            <div class="compare-grid">
+                <div class="chart-container"><canvas id="compareChart"></canvas></div>
+                <div class="table-wrap"><table><thead><tr><th data-i18n="table.algorithm">Algorithm</th><th data-i18n="compare.run">Run</th><th data-i18n="compare.value">Value</th></tr></thead><tbody id="compare-table-body"><tr><td colspan="3" class="empty" data-i18n="compare.selectAtLeastTwo">Select at least two runs to compare.</td></tr></tbody></table></div>
+            </div>
+        </section>
+        </div>
+
+        <div id="page-results" class="page-view">
+            <section class="panel panel-monitoring" id="results-section">
             <h2 data-i18n="results.title">Algorithm Results</h2>
             <div class="table-wrap">
                 <table id="results-table">
@@ -334,30 +612,19 @@
                 </table>
             </div>
         </section>
-
-        <section id="compare-panel" class="panel">
-            <h2 data-i18n="compare.title">Compare Runs</h2>
-            <div class="compare-controls">
-                <select id="compare-metric">
-                    <option value="reward" data-i18n="results.reward">Reward</option>
-                    <option value="latency" data-i18n="results.latency">Latency</option>
-                    <option value="energy" data-i18n="results.energy">Energy</option>
-                    <option value="deadline_miss_rate" data-i18n="compare.deadlineMissRate">Deadline Miss Rate</option>
-                    <option value="throughput">Throughput</option>
-                    <option value="comm_score">Comm Score</option>
-                    <option value="train_time" data-i18n="chart.trainTime">Train Time</option>
-                    <option value="update_count" data-i18n="compare.updateCount">Update Count</option>
-                </select>
-                <span class="muted" id="compare-hint" data-i18n="compare.selectAtLeastTwo">Select at least two runs to compare.</span>
-            </div>
-            <div class="compare-grid">
-                <div class="chart-container"><canvas id="compareChart"></canvas></div>
-                <div class="table-wrap"><table><thead><tr><th data-i18n="table.algorithm">Algorithm</th><th data-i18n="compare.run">Run</th><th data-i18n="compare.value">Value</th></tr></thead><tbody id="compare-table-body"><tr><td colspan="3" class="empty" data-i18n="compare.selectAtLeastTwo">Select at least two runs to compare.</td></tr></tbody></table></div>
-            </div>
+            <section class="panel panel-alerts" id="backups-section">
+            <h2 data-i18n="backup.title">Backups</h2>
+            <div id="backup-content" class="empty" data-i18n="backup.none">No backups found for this run.</div>
+            <h3 class="panel-subtitle" data-i18n="backup.recent">Recent Backups</h3>
+            <div id="global-backups" class="table-wrap"></div>
+            <h3 class="panel-subtitle" data-i18n="backup.diagnostics">Backup Diagnostics</h3>
+            <div id="backup-diagnostics" class="diagnostics-grid"></div>
         </section>
+        </div>
 
-        <section class="logs-grid">
-            <div class="panel">
+        <div id="page-logs" class="page-view">
+            <section class="logs-grid" id="logs-section">
+            <div class="panel panel-monitoring">
                 <h2 data-i18n="artifact.title">Artifact Logs</h2>
                 <div class="log-tabs">
                     <span class="muted" id="artifact-log-title" data-i18n="artifact.select">Select an algorithm log</span>
@@ -367,7 +634,7 @@
                 <pre id="artifact-log-window" class="log-window artifact-log-window" data-i18n="artifact.none">No artifact log selected.</pre>
             </div>
 
-            <div class="panel">
+            <div class="panel panel-monitoring">
                 <h2 data-i18n="logs.title">Live Logs</h2>
                 <div class="log-controls">
                     <select id="log-level-filter">
@@ -383,8 +650,10 @@
                 <div id="log-window" class="log-window"><div class="log-line" data-i18n="log.waiting">Waiting for logs...</div></div>
             </div>
         </section>
+        </div>
 
-        <section class="panel danger-zone">
+        <div id="page-danger" class="page-view">
+            <section class="panel danger-zone" id="danger-section">
             <h2 data-i18n="delete.title">Danger Zone</h2>
             <div class="muted" data-i18n="delete.description">Delete real local source files only after preview and target-id confirmation.</div>
             <div id="delete-targets" class="table-wrap" style="margin-top:12px;"></div>
@@ -395,15 +664,39 @@
             </div>
             <div id="delete-message" class="muted" style="margin-top:8px;"></div>
         </section>
+        </div>
+
         </main>
+        </div>
     </div>
 
     <script>
+
+        function switchPage(pageId, navElement) {
+            document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.side-nav .nav-link').forEach(l => l.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            if (navElement) {
+                navElement.classList.add('active');
+            } else {
+                let found = document.querySelector(`.side-nav .nav-link[data-page='${pageId}']`);
+                if (found) found.classList.add('active');
+            }
+            if (typeof Chart !== 'undefined' && Chart.instances) {
+                Object.values(Chart.instances).forEach(chart => chart.update());
+            }
+        }
+
         const I18N_STORAGE_KEY = 'rl-mec-dashboard-language';
         const I18N = {
             en: {
                 'app.title': 'RL-MEC Training Dashboard',
                 'language.ariaLabel': 'Language',
+                'nav.overview': 'Overview',
+                'nav.metrics': 'Metrics & Charts',
+                'nav.results': 'Results & Artifacts',
+                'nav.logs': 'System Logs',
+                'nav.danger': 'Danger Zone',
                 'top.noRunSelected': 'No run selected',
                 'top.runInfo': '{name} · {source} source',
                 'action.reconnectSse': 'Reconnect SSE',
@@ -564,6 +857,11 @@
             zh: {
                 'app.title': 'RL-MEC 训练看板',
                 'language.ariaLabel': '语言',
+                'nav.overview': '概览',
+                'nav.metrics': '图表与指标',
+                'nav.results': '结果与产物',
+                'nav.logs': '系统日志',
+                'nav.danger': '危险区域',
                 'top.noRunSelected': '未选择运行',
                 'top.runInfo': '{name} · {source} 数据源',
                 'action.reconnectSse': '重连 SSE',
@@ -764,7 +1062,7 @@
                 const saved = localStorage.getItem(I18N_STORAGE_KEY);
                 if (I18N[saved]) return saved;
             } catch (error) {}
-            return (navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+            return 'zh';
         }
 
         function t(key, values) {
@@ -826,10 +1124,10 @@
             return {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { labels: { color: '#dbe6ff' } } },
+                plugins: { legend: { labels: { color: '#DBE6FF', font: { family: "'Inter', sans-serif" } } } },
                 scales: {
-                    x: { ticks: { color: '#bfcae1' }, grid: { color: 'rgba(255,255,255,0.08)' } },
-                    y: { ticks: { color: '#bfcae1' }, grid: { color: 'rgba(255,255,255,0.08)' } }
+                    x: { ticks: { color: '#BFCAE1', font: { family: "'JetBrains Mono', monospace" } }, grid: { color: '#202A3A' } },
+                    y: { ticks: { color: '#BFCAE1', font: { family: "'JetBrains Mono', monospace" } }, grid: { color: '#202A3A' } }
                 }
             };
         }
@@ -1682,8 +1980,11 @@
                 return;
             }
             win.innerHTML = filtered.map(log => {
-                const text = '[' + (log.time || '-') + '] [' + (log.level || 'info').toUpperCase() + '] ' + (log.text || '');
-                return '<div class="log-line log-' + escapeAttr(log.level || 'info') + '" onclick="copyLogLine(\'' + escapeAttr(text) + '\')">' + escapeHtml(text) + '</div>';
+                const timestamp = '[' + (log.time || '-') + ']';
+                const level = '[' + (log.level || 'info').toUpperCase() + ']';
+                const content = (log.text || '');
+                const fullText = timestamp + ' ' + level + ' ' + content;
+                return '<div class="log-line log-' + escapeAttr(log.level || 'info') + '" onclick="copyLogLine(\'' + escapeAttr(fullText) + '\')"><span class="log-timestamp">' + escapeHtml(timestamp + ' ' + level) + '</span><span>' + escapeHtml(content) + '</span></div>';
             }).join('');
             if (dashboardState.filters.autoScroll) win.scrollTop = win.scrollHeight;
         }
@@ -1791,7 +2092,15 @@
             const message = t('stop.confirm');
             if (!confirm(message)) return;
             try { await fetch('/api/shutdown', { method: 'POST' }); } catch (error) {}
-            document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;color:#eef3ff;font-family:Segoe UI,Arial,sans-serif;"><div><h1>' + escapeHtml(t('stop.title')) + '</h1><p>' + escapeHtml(t('stop.message')) + '</p></div></div>';
+            
+            // Try to close the browser tab directly
+            window.open('', '_self', '');
+            window.close();
+            
+            // Fallback UI if browser blocks window.close()
+            setTimeout(() => {
+                document.body.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#070c15;color:#eef3ff;font-family:var(--font-sans);text-align:center;"><h1 style="margin-bottom:12px;">' + escapeHtml(t('stop.title')) + '</h1><p style="color:#94a3b8;margin-bottom:24px;">' + escapeHtml(t('stop.message')) + '</p><p style="color:#64748b;font-size:15px;background:#111827;padding:12px 24px;border-radius:8px;border:1px solid #1e3a5f;">您可以直接关闭此浏览器标签页 / You may safely close this tab.</p></div>';
+            }, 100);
         }
 
         function getStatusBadge(status) {
