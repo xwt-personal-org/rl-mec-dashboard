@@ -1,7 +1,0 @@
-{
-  "schema_version": "wkstruc-checkpoint/v9",
-  "checkpoint_id": "checkpoint-v3.3",
-  "created_at": "2026-05-09",
-  "ledger_task_id": "v3.3-mainline-a-adaptation",
-  "notes": "v9 migration checkpoint. Modules 1-14 complete, NEEDS_REVIEW. Migrated from docs/progress.md and docs/report.md."
-}
