@@ -31,3 +31,6 @@ test-temp/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local agent archive
+.ai/
