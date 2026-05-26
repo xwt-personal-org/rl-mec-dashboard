@@ -8,10 +8,22 @@ This project: `C:\Users\22003\paper2\web_dashboard`
 
 ## Key Files
 
-- `serve_dashboard.py` — FastAPI backend, log parser, SSE server
+- `serve_dashboard.py` — CLI 薄入口，调用 `dashboard/` 包
+- `dashboard/` — 后端模块化实现
+  - `api.py` — FastAPI 路由定义
+  - `state_aggregator.py` — 状态聚合与判定逻辑
+  - `log_parser.py` — 日志解析
+  - `config.py` — 配置与 CLI 参数
+  - `models.py` — 数据模型
+  - `exporter.py` — CSV/Markdown 导出
+  - `sse.py` — Server-Sent Events
+  - `run_discovery.py` — Run 发现与加载
+  - `experiment_reader.py` — 实验目录读取
+  - `protocol_reader.py` — 结构化协议读取
+  - `convergence.py` — 收敛曲线加载
+  - `delete_service.py` — 删除服务
 - `monitor_dashboard.html` — Standalone frontend (no build step)
 - `start_dashboard.bat` / `start_dashboard.vbs` — Launch scripts (vbs hides console window)
-- `PLAN.md` — Original specification (may be stale)
 
 ## Launch Commands
 
@@ -62,6 +74,19 @@ Key patterns:
 - `GET /api/runs` — discover all runs in log directory
 - `GET /api/runs/{run_id}` — snapshot of a run
 - `GET /api/runs/{run_id}/events` — SSE stream (1 snapshot/sec)
+- `GET /api/runs/{run_id}/logs/{algorithm}/stdout` — algorithm stdout log tail
+- `GET /api/runs/{run_id}/logs/{algorithm}/stderr` — algorithm stderr log tail
+- `GET /api/runs/{run_id}/convergence` — convergence curve data
+- `GET /api/runs/{run_id}/benchmark` — benchmark export data
+- `GET /api/compare` — multi-run comparison
+- `GET /api/export/results.csv` — CSV export
+- `GET /api/export/results.md` — Markdown export
+- `GET /api/backups` — list all backups
+- `GET /api/backups/{backup_id}` — backup detail
+- `GET /api/backups/diagnostics` — backup scan diagnostics
+- `POST /api/delete-preview` — preview delete targets
+- `POST /api/delete-confirm` — confirm deletion
+- `POST /api/shutdown` — shutdown dashboard server
 - `GET /` — serves `monitor_dashboard.html`
 
 ## Common Mistakes to Avoid
@@ -74,7 +99,7 @@ Key patterns:
 
 ## Architecture Notes
 
-- Single-file backend (no package structure), single HTML file frontend
+- 模块化后端 (`dashboard/` 包)，单 HTML 文件前端
 - In-memory state only (no database)
 - Background scan thread updates all RunState every 1 second
 - `load_benchmark_json()` called on every scan cycle to backfill missing latency/energy
