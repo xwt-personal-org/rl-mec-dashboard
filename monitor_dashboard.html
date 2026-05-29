@@ -685,6 +685,12 @@
             if (typeof Chart !== 'undefined' && Chart.instances) {
                 Object.values(Chart.instances).forEach(chart => chart.update());
             }
+
+            if (pageId === 'page-overview') {
+                startRunsPolling();
+            } else {
+                stopRunsPolling();
+            }
         }
 
         const I18N_STORAGE_KEY = 'rl-mec-dashboard-language';
@@ -1041,7 +1047,8 @@
             selectedLog: { runId: null, algorithm: null, stream: 'stdout' },
             filters: { status: 'all', keyword: '', logLevel: 'all', logKeyword: '', autoScroll: true },
             charts: { rewardChart: null, timeChart: null, compareChart: null, convergenceChart: null },
-            sse: { eventSource: null, reconnectTimer: null, connected: false }
+            sse: { eventSource: null, reconnectTimer: null, connected: false },
+            pollingIntervalId: null
         };
 
         const DEFAULT_RUN_ID = 'paper2_full_17_vscode';
@@ -2088,6 +2095,27 @@
             dashboardState.sse.reconnectTimer = null;
         }
 
+        function startRunsPolling() {
+            if (dashboardState.pollingIntervalId) return;
+            dashboardState.pollingIntervalId = setInterval(async () => {
+                try {
+                    const data = await apiGetJson('/api/runs');
+                    dashboardState.runs = data.runs || [];
+                    renderRunOverview(dashboardState.runs);
+                    renderRunSelect();
+                } catch (error) {
+                    console.error('Failed to poll runs:', error);
+                }
+            }, 3000);
+        }
+
+        function stopRunsPolling() {
+            if (dashboardState.pollingIntervalId) {
+                clearInterval(dashboardState.pollingIntervalId);
+                dashboardState.pollingIntervalId = null;
+            }
+        }
+
         async function stopDashboardServer() {
             const message = t('stop.confirm');
             if (!confirm(message)) return;
@@ -2208,6 +2236,7 @@
             await fetchInitialRunState(dashboardState.currentSelectionValue);
             await loadConvergence();
             initSSE();
+            startRunsPolling();
         });
     </script>
 </body>
