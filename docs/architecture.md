@@ -98,6 +98,52 @@ flowchart TD
     HTML --> Charts
 ```
 
+### Current module dependency graph
+
+WEN-150 documentation note: `ref/architecture-brief.md` Linear reference maps to `docs/architecture.md`. This repo has no root `ref/` directory; implementation references live in `docs/references/`.
+
+```mermaid
+flowchart TD
+    Entry["serve_dashboard.py"]
+    Config["dashboard.config"]
+    Models["dashboard.models"]
+    LogParser["dashboard.log_parser"]
+    ProtocolReader["dashboard.protocol_reader"]
+    ExperimentReader["dashboard.experiment_reader"]
+    BenchmarkSchema["dashboard.benchmark_schema"]
+    RunDiscovery["dashboard.run_discovery"]
+    Aggregator["dashboard.state_aggregator"]
+    StateStore["dashboard.state_store"]
+    API["dashboard.api"]
+    SSE["dashboard.sse"]
+    Convergence["dashboard.convergence"]
+    DeleteService["dashboard.delete_service"]
+    Exporter["dashboard.exporter"]
+    Frontend["monitor_dashboard.html"]
+
+    Entry --> Config
+    Entry --> API
+    Config --> RunDiscovery
+    RunDiscovery --> Models
+    RunDiscovery --> ProtocolReader
+    RunDiscovery --> ExperimentReader
+    RunDiscovery --> BenchmarkSchema
+    LogParser --> Aggregator
+    ProtocolReader --> Aggregator
+    ExperimentReader --> Aggregator
+    BenchmarkSchema --> Aggregator
+    Aggregator --> Models
+    Aggregator --> StateStore
+    StateStore --> API
+    StateStore --> SSE
+    StateStore --> Exporter
+    API --> SSE
+    API --> Convergence
+    API --> DeleteService
+    API --> Exporter
+    API --> Frontend
+```
+
 ---
 
 ## 2. 模块划分

@@ -111,6 +111,13 @@ Benchmark-only 数据源说明：
 详见：
 
 - `docs/architecture.md`
+- `docs/references/`
+
+## 参考文档完整性
+
+No root `ref/` directory exists in this repo. Linear references to `ref/architecture-brief.md` map to the current architecture document at `docs/architecture.md`.
+
+Reference material lives under `docs/references/`; keep that directory populated with the protocol, paper2 writer, and dispatch notes used by dashboard implementation and handoff work.
 
 ## API
 
