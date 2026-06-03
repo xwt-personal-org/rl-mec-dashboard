@@ -579,6 +579,7 @@
                 </select>
                 <span class="muted" id="compare-hint" data-i18n="compare.selectAtLeastTwo">Select at least two runs to compare.</span>
             </div>
+            <div id="compare-evidence-warning" class="evidence-boundary-warning" hidden data-i18n="compare.evidenceMixedWarning">Compare results come from different evidence boundary contexts and may not be fully comparable.</div>
             <div class="compare-grid">
                 <div class="chart-container"><canvas id="compareChart"></canvas></div>
                 <div class="table-wrap"><table><thead><tr><th data-i18n="table.algorithm">Algorithm</th><th data-i18n="compare.run">Run</th><th data-i18n="compare.value">Value</th></tr></thead><tbody id="compare-table-body"><tr><td colspan="3" class="empty" data-i18n="compare.selectAtLeastTwo">Select at least two runs to compare.</td></tr></tbody></table></div>
@@ -856,6 +857,7 @@
                 'compare.run': 'Run',
                 'compare.value': 'Value',
                 'compare.noComparableValues': 'No comparable values.',
+                'compare.evidenceMixedWarning': 'Compare results come from different evidence boundary contexts and may not be fully comparable.',
                 'logs.title': 'Live Logs',
                 'log.autoScroll': 'Auto-scroll',
                 'log.noRecentErrors': 'No recent errors',
@@ -1033,6 +1035,7 @@
                 'compare.run': '运行',
                 'compare.value': '数值',
                 'compare.noComparableValues': '暂无可对比数值。',
+                'compare.evidenceMixedWarning': '对比结果来自不同 evidence boundary，可能不完全可比。',
                 'logs.title': '实时日志',
                 'log.autoScroll': '自动滚动',
                 'log.noRecentErrors': '暂无近期错误',
@@ -1527,17 +1530,14 @@
             const hint = document.getElementById('compare-hint');
             if (ids.length < 2) {
                 dashboardState.comparePayload = null;
-                hint.textContent = t('compare.selectAtLeastTwo');
-                renderCompareChart(null);
-                renderCompareTable(null);
+                renderCompareState();
                 return;
             }
             hint.textContent = t('compare.runsSelected', { count: ids.length });
             const url = '/api/compare?run_ids=' + encodeURIComponent(ids.join(',')) + '&metric=' + encodeURIComponent(dashboardState.selectedMetric);
             const payload = await apiGetJson(url);
             dashboardState.comparePayload = payload;
-            renderCompareChart(payload);
-            renderCompareTable(payload);
+            renderCompareState();
         }
 
         function exportResults(format) {
@@ -2098,7 +2098,21 @@
 
         function renderCompareState() {
             const hint = document.getElementById('compare-hint');
+            const warning = document.getElementById('compare-evidence-warning');
             if (!hint) return;
+            const boundaryWarningText = t('compare.evidenceMixedWarning');
+            const payload = dashboardState.comparePayload;
+            if (warning) {
+                if (payload && payload.evidence_mixed) {
+                    let message = payload.warning || boundaryWarningText;
+                    if (!message.toLowerCase().includes('evidence boundary')) message += ' ' + boundaryWarningText;
+                    warning.textContent = message;
+                    warning.hidden = false;
+                } else {
+                    warning.textContent = boundaryWarningText;
+                    warning.hidden = true;
+                }
+            }
             if (dashboardState.selectedRunIds.length < 2) {
                 hint.textContent = t('compare.selectAtLeastTwo');
                 renderCompareChart(null);
@@ -2106,8 +2120,8 @@
                 return;
             }
             hint.textContent = t('compare.runsSelected', { count: dashboardState.selectedRunIds.length });
-            renderCompareChart(dashboardState.comparePayload);
-            renderCompareTable(dashboardState.comparePayload);
+            renderCompareChart(payload);
+            renderCompareTable(payload);
         }
 
         function renderCompareTable(payload) {
