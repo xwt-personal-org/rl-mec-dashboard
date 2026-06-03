@@ -84,6 +84,7 @@
             --space-08: 16px;
             --space-10: 20px;
             --space-11: 24px;
+            --page-padding: 24px;
             --control-height: 38px;
             --mini-control-height: 28px;
             /* Radii */
@@ -217,7 +218,7 @@
         }
         .workspace {
             min-width: 0;
-            padding: var(--space-07, 14px) var(--space-11) 30px;
+            padding: var(--page-padding);
             background: transparent;
         }
         h1 { font-family: var(--font-sans); font-size: 28px; font-weight: 800; line-height: 1.15; letter-spacing: 0; color: var(--on-surface-strong); }
@@ -371,6 +372,7 @@
         .error-summary.empty-summary { color: var(--muted); background: var(--panel-muted); border: 1px solid var(--line-soft); }
         .empty { color: var(--muted); text-align: center; padding: 28px; font-size: 0.85rem; }
         @media (max-width: 1100px) {
+            :root { --page-padding: 14px; }
             .container { grid-template-columns: 1fr; }
             .sidebar {
                 position: relative;
@@ -383,22 +385,22 @@
             }
             .side-nav { flex-direction: row; min-width: max-content; }
             .nav-link { min-height: 36px; }
-            .workspace { padding: 0 16px 24px; }
             .app-header { align-items: stretch; flex-direction: column; }
             .topbar { justify-content: flex-start; }
             .charts-grid, .compare-grid, .backup-grid, .logs-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 768px) {
+            :root { --page-padding: 10px; }
             .brand span { display: none; }
-            .workspace { padding: 0 12px 18px; }
             .app-header { padding: 16px; }
-            .status-bar { grid-template-columns: repeat(2, 1fr); }
+            .status-bar { grid-template-columns: 1fr; }
             .run-overview { grid-template-columns: 1fr; max-height: none; overflow: visible; padding-right: 0; }
             .compare-grid { grid-template-columns: 1fr; }
+            .backup-grid, .diagnostics-grid { grid-template-columns: 1fr; }
+            .topbar, .filters, .compare-controls, .convergence-controls, .log-controls { align-items: stretch; }
         }
         @media (max-width: 480px) {
             .sidebar { padding: 10px; }
-            .workspace { padding: 0 10px 16px; }
             .app-header { padding: 12px; }
             .status-bar { grid-template-columns: 1fr; }
             .topbar select { width: 100%; }
