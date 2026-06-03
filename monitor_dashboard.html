@@ -652,6 +652,11 @@
                 <div id="log-window" class="log-window"><div class="log-line" data-i18n="log.waiting">Waiting for logs...</div></div>
             </div>
         </section>
+            <section class="panel panel-monitoring" id="mainline-a-diagnostics">
+            <h2 data-i18n="mainline.title">Mainline-A Diagnostics</h2>
+            <div class="muted" data-i18n="mainline.description">Read-only scan of paper2 roots, benchmark files, and launch configuration.</div>
+            <div id="mainline-a-diagnostics-grid" class="diagnostics-grid" style="margin-top:12px;"></div>
+        </section>
         </div>
 
         <div id="page-danger" class="page-view">
@@ -773,6 +778,18 @@
                 'backup.checkPaths': 'No backups matched. Check --experiments-dir, --backup-scan-dir and --results-dir.',
                 'backup.noGlobal': 'No backups or archives discovered.',
                 'backup.view': 'View',
+                'mainline.title': 'Mainline-A Diagnostics',
+                'mainline.description': 'Read-only scan of paper2 roots, benchmark files, and launch configuration.',
+                'mainline.paper2Root': 'paper2 root',
+                'mainline.python': 'Python',
+                'mainline.resultsDir': 'Results',
+                'mainline.benchmarkFiles': 'Benchmark files',
+                'mainline.mainlineFiles': 'Mainline-A files',
+                'mainline.launchJson': 'launch.json',
+                'mainline.launchReady': 'direct/full-17 config detected',
+                'mainline.launchMissing': 'direct/full-17 config missing',
+                'mainline.disabled': 'Mainline-A scan disabled',
+                'mainline.notes': 'Notes',
                 'delete.title': 'Danger Zone',
                 'delete.description': 'Delete real local source files only after preview and exact target-id confirmation.',
                 'delete.targets': 'Delete Targets',
@@ -938,6 +955,18 @@
                 'backup.checkPaths': '没有匹配备份，请检查 --experiments-dir / --backup-scan-dir / --results-dir。',
                 'backup.noGlobal': '暂无备份或归档。',
                 'backup.view': '查看',
+                'mainline.title': 'Mainline-A 诊断',
+                'mainline.description': '只读扫描 paper2 roots、benchmark 文件与 launch 配置。',
+                'mainline.paper2Root': 'paper2 根目录',
+                'mainline.python': 'Python',
+                'mainline.resultsDir': '结果目录',
+                'mainline.benchmarkFiles': 'Benchmark 文件',
+                'mainline.mainlineFiles': 'Mainline-A 文件',
+                'mainline.launchJson': 'launch.json',
+                'mainline.launchReady': '已检测 direct/full-17 配置',
+                'mainline.launchMissing': '缺少 direct/full-17 配置',
+                'mainline.disabled': 'Mainline-A 扫描已关闭',
+                'mainline.notes': '备注',
                 'delete.title': '危险区',
                 'delete.description': '只在预览和精确 target_id 确认后删除真实本地源文件。',
                 'delete.targets': '删除目标',
@@ -1033,6 +1062,7 @@
             runs: [],
             backups: [],
             backupDiagnostics: null,
+            mainlineDiagnostics: null,
             currentRunBackups: [],
             deleteTargets: [],
             pendingDeletePreview: null,
@@ -1118,6 +1148,7 @@
             renderRunSelect();
             renderGlobalBackups(dashboardState.backups);
             renderBackupDiagnostics(dashboardState.backupDiagnostics);
+            renderMainlineADiagnostics(dashboardState.mainlineDiagnostics);
             renderDeleteTargets(dashboardState.deleteTargets);
             renderDeletePreview(dashboardState.pendingDeletePreview);
             renderConvergenceControls(dashboardState.convergencePayload);
@@ -1181,6 +1212,7 @@
             dashboardState.runs = data.runs || [];
             await loadBackups();
             await loadBackupDiagnostics();
+            await loadMainlineADiagnostics();
             await loadDeleteTargets();
             if (!dashboardState.currentRunId && dashboardState.runs.length) {
                 const defaultRun = dashboardState.runs.find(run => run.run_id === DEFAULT_RUN_ID) || dashboardState.runs[0];
@@ -1255,6 +1287,13 @@
             const payload = await apiGetJson('/api/backups/diagnostics');
             dashboardState.backupDiagnostics = payload;
             renderBackupDiagnostics(payload);
+            return payload;
+        }
+
+        async function loadMainlineADiagnostics() {
+            const payload = await apiGetJson('/api/mainline-a/diagnostics');
+            dashboardState.mainlineDiagnostics = payload;
+            renderMainlineADiagnostics(payload);
             return payload;
         }
 
@@ -1703,6 +1742,33 @@
                 backupItem(t('backup.resultsArchive'), (archive.exists ? 'exists' : 'missing') + ' / ' + (archive.benchmark_archives || 0)) +
                 backupItem(t('backup.matched'), diagnostics.matched_backups || 0) +
                 (notes.length ? '<div class="diagnostics-note">' + escapeHtml(notes.join(' | ')) + '</div>' : '');
+        }
+
+        function renderMainlineADiagnostics(diagnostics) {
+            const root = document.getElementById('mainline-a-diagnostics-grid');
+            if (!root) return;
+            if (!diagnostics) {
+                root.innerHTML = '<div class="backup-item"><div class="value">-</div></div>';
+                return;
+            }
+            const benchmarkFiles = diagnostics.benchmark_files || [];
+            const mainlineFiles = benchmarkFiles.filter(file => file.schema === 'mainline_a').length;
+            const launchJson = diagnostics.launch_json || {};
+            const notes = diagnostics.mainline_a_enabled === false
+                ? [t('mainline.disabled')].concat(diagnostics.notes || [])
+                : (diagnostics.notes || []);
+            root.innerHTML =
+                backupItem(t('mainline.paper2Root'), diagnostics.paper2_root || '-') +
+                backupItem(t('mainline.python'), diagnostics.paper2_python || '-') +
+                backupItem(t('mainline.resultsDir'), diagnostics.results_dir || '-') +
+                backupItem(t('mainline.benchmarkFiles'), benchmarkFiles.length) +
+                backupItem(t('mainline.mainlineFiles'), mainlineFiles) +
+                backupItem(
+                    t('mainline.launchJson'),
+                    (launchJson.exists ? launchJson.path : '-') + ' / ' +
+                        (launchJson.has_direct_full17 ? t('mainline.launchReady') : t('mainline.launchMissing'))
+                ) +
+                (notes.length ? '<div class="diagnostics-note">' + escapeHtml(t('mainline.notes') + ': ' + notes.join(' | ')) + '</div>' : '');
         }
 
         function renderDeleteTargets(targets) {
